@@ -1,0 +1,315 @@
+common:
+  appTitle: DiffSynth Qwen Control
+  language: Language
+  english: English
+  chinese: Chinese
+  working: Working...
+  save: Save
+  saving: Saving...
+  refresh: Refresh
+  create: Create
+  delete: Delete
+  cancel: Cancel
+  open: Open
+  settings: Settings
+  datasets: Datasets
+  dashboard: Dashboard
+  inference: Inference
+  singleInference: One-off Inference
+  modelServices: Model Services
+  jobList: Job List
+  newTrain: New Train
+  theme: Theme
+  darkConsole: Dark console
+  noData: No data available
+  openMenu: Open menu
+  resizeLeftPanel: Resize left panel
+  drag: drag
+sidebar:
+  diffSynth: DiffSynth
+  qwenControl: Qwen Control
+  openSettings: Open settings
+settings:
+  title: Settings
+  runtimePaths: Runtime Paths
+  runtimePathsHelp: These paths control datasets, training outputs, inference outputs, and the conda environment name.
+  datasetsRoot: Datasets Root
+  trainingRoot: Training Root
+  inferenceRoot: Inference Root
+  condaEnvName: Conda Env Name
+  saved: Saved.
+  failed: Failed to save settings.
+  languageSection: Language
+  languageHelp: The UI keeps English-oriented code paths and switches visible text through YAML translations.
+jobs:
+  title: Job List
+  allJobs: All Jobs
+  count: "{count} jobs"
+  allTypes: All types
+  train: Train
+  infer: Infer
+  allStatuses: All statuses
+  draft: Draft
+  queued: Queued
+  running: Running
+  stopping: Stopping
+  stopped: Stopped
+  completed: Completed
+  error: Error
+  showArchived: Show archived
+  selected: "{count} selected"
+  selectVisible: Select visible
+  archiveSelected: Archive selected
+  unarchiveSelected: Unarchive selected
+  deleteSelected: Delete selected
+  job: Job
+  type: Type
+  gpu: GPU
+  progress: Progress
+  status: Status
+  updated: Updated
+  actions: Actions
+  archived: archived
+  locked: Locked
+  lockedWhileActive: Locked while active
+  noMatch: No jobs matched the current filters.
+  more: More
+  less: Less
+  archive: Archive
+  unarchive: Unarchive
+  deleteJob: Delete Job
+  deleteJobs: Delete Jobs
+  deleteSingleMessage: "Delete job \"{name}\"?\n\nThis will remove the job record and its artifact directory from disk."
+  deleteMultiMessage: "Delete {count} jobs?\n\n{items}{more}\n\nThis will remove each job record and its artifact directory from disk."
+  andMore: "\n- ...and {count} more"
+  selectJob: "Select {name}"
+  openActions: "Open actions for {name}"
+  allStatusesLabel:
+    draft: Draft
+    queued: Queued
+    running: Running
+    stopping: Stopping
+    stopped: Stopped
+    completed: Completed
+    error: Error
+jobDetail:
+  title: Job Details
+  type: Type
+  status: Status
+  gpu: GPU
+  progress: Progress
+  refreshLog: Refresh log
+  logAutoRefresh: Auto refresh
+  start: Start
+  stop: Stop
+  archive: Archive
+  unarchive: Unarchive
+  useInInference: Use in One-off Inference
+  overview: Overview
+  archived: Archived
+  yes: yes
+  no: no
+  noStatusMessage: No status message
+  artifacts: Artifacts
+  results: Results
+  evalTimeline: Eval Timeline
+  log: Log
+  noArtifacts: No artifacts yet.
+  noResults: No results yet.
+  noEvalResults: No eval results yet.
+  waitingForLog: Waiting for log...
+  trainingProgress: Training Progress
+  stepProgress: Step Progress
+  epochProgress: Epoch Progress
+  activeStep: Active Step
+  eta: ETA
+  speed: Speed
+  elapsed: Elapsed
+  liveProgressPending: Waiting for live step data
+  deleteSingleMessage: "Delete job \"{name}\"?\n\nThis will remove the job record and its artifact directory from disk."
+  resultPreview: Result Preview
+  openFullscreen: Click to view fullscreen
+  servedBy: Execution Mode
+  servedByService: Reused service
+  servedByEphemeral: Ephemeral run
+  prompt: Prompt
+  seed: Seed
+  steps: Steps
+  checkpoint: Checkpoint
+  stepAt: "Step {value}"
+  epochAt: "Epoch {value}"
+  closePreview: Close preview
+dashboard:
+  activeTrainJobs: Active Train Jobs
+  recentInference: Recent Inference
+  viewAll: View all
+  noActiveTrainJobs: No active train jobs.
+  noInferenceJobs: No inference jobs yet.
+  inferenceJob: Inference job
+  gpuMonitor: GPU Monitor
+  updatedAt: Updated {time}
+datasetsPage:
+  title: Datasets
+  createDataset: Create Dataset
+  datasetNamePlaceholder: dataset name
+  datasetList: Dataset List
+  noDatasets: No datasets.
+  deleteDatasetMessage: "Delete dataset \"{name}\"?"
+datasetDetail:
+  uploadImages: Upload Images
+  upload: Upload
+  chooseFolder: Choose Folder
+  uploadFolderHint: Drag a whole folder here to import all images and matching .txt caption files.
+  uploadFolderSubhint: Relative paths are preserved, and same-name images and .txt files are paired automatically.
+  noFolderSelected: No folder or files selected yet.
+  saveCaptions: Save Captions + metadata.csv
+  captioned: captioned
+  pending: pending
+  captionPlaceholder: caption prompt
+  noImages: No images yet.
+trainForm:
+  title: New Train Job
+  formTitle: Qwen LoRA Form
+  commandPreview: Command Preview
+  jobName: Job Name
+  dataset: Dataset
+  gpuIds: GPU IDs
+  outputPath: Output Path
+  outputPlaceholder: optional, default models/train/<job-name>
+  learningRate: Learning Rate
+  epochs: Epochs
+  datasetRepeat: Dataset Repeat
+  maxPixels: Max Pixels
+  loraRank: LoRA Rank
+  datasetWorkers: Dataset Workers
+  gradAccum: Grad Accum
+  gradientCheckpointing: gradient checkpointing
+  findUnusedParams: find unused params
+  multiGpu: multi GPU
+  dragHint: Desktop supports dragging the divider to resize the form panel.
+  createTrainJob: Create Train Job
+  select: Select
+inferencePage:
+  title: One-off Inference
+  formTitle: One-off Inference
+  recentRequests: Recent Requests
+  galleryTitle: Inspiration Stream
+  galleryHint: Recent inference outputs flow here as a live gallery.
+  refreshGallery: Refresh gallery
+  noGalleryResults: No inference results yet.
+  jobName: Job Name
+  prompt: Prompt
+  seed: Seed
+  steps: Steps
+  gpuId: GPU ID
+  outputPrefix: Output Prefix
+  sourceTrainJob: Source Train Job
+  modelSource: Model Source
+  baseModelOption: Base model only
+  baseModelTag: Base
+  loraTag: LoRA
+  serviceModeLabel: Service reuse
+  serviceModeAuto: Auto match
+  serviceModeManual: Choose service
+  serviceModeAutoHelp: Reuse any running service that matches this GPU and model setup.
+  serviceModeManualHelp: Limit one-off inference to a specific running service that matches this GPU and model setup.
+  noMatchingService: No matching running services for the current GPU and model selection.
+  checkpointAutoFill: Checkpoint path will auto-fill from the selected training job.
+  manualCheckpoint: Manual checkpoint
+  checkpointPath: Checkpoint Path
+  serviceReuseHint: One-off inference reuses a matching running model service when available; otherwise it spins up an ephemeral model run.
+  runInference: Run Inference
+  started: Started
+  noLocalRequests: No local requests yet.
+inferenceGallery:
+  eyebrow: Discovery feed
+  untitled: Untitled
+  delete: Delete
+  cancel: Cancel
+  deleteTitle: Delete Inference Job
+  deleteMessage: "Delete \"{name}\"?\n\nThis will remove the inference job and its artifact directory."
+  deleting: Deleting...
+  baseModel: Base
+  gpu: "GPU {value}"
+  seed: "Seed {value}"
+  steps: "{value} steps"
+  expand: Fullscreen
+  favorite: Save card
+  unfavorite: Remove saved card
+  servedByService: Live service
+  servedByEphemeral: One-off
+  openJob: Open job
+  filterAll: All
+  filterService: Live
+  filterLora: LoRA
+  filterBase: Base
+  historyHint: Newly started requests stay here for quick jump-back.
+  historyOpen: Open
+  reuse: Reuse prompt
+  rerun: Run again
+  reuseToastTitle: Prompt loaded
+  rerunToastTitle: Inference queued
+  rerunQueued: Re-run queued
+servicesPage:
+  title: Inference Services
+  createService: Create Service
+  serviceList: Service List
+  serviceName: Service Name
+  gpuIds: GPU IDs
+  modelSource: Model Source
+  checkpointPath: Checkpoint Path
+  baseModelOnly: Base model only
+  baseTag: Base
+  loraTag: LoRA
+  loraEnabled: LoRA enabled
+  baseOnly: Base model only
+  start: Start
+  stop: Stop
+  health: Health
+  endpoint: Endpoint
+  port: Port
+  healthStatus: Health
+  modelMode: Model Mode
+  reachable: Reachable
+  unreachable: Unreachable
+  log: Service Log
+  waitingForLog: Waiting for service log...
+  selectAService: Select a service to inspect.
+  deleteService: Delete Service
+  deleteServiceMessage: "Delete service \"{name}\"?\n\nThis will remove the service record and its runtime directory."
+  statusLabel:
+    draft: Draft
+    queued: Queued
+    starting: Starting
+    running: Running
+    stopping: Stopping
+    stopped: Stopped
+    error: Error
+  noServices: No inference services yet.
+auth:
+  access: Access
+  tokenTitle: API Token
+  tokenHelp: Supports UI_VIEWER_TOKEN, UI_OPERATOR_TOKEN, UI_ADMIN_TOKEN. Legacy UI_AUTH_TOKEN is still accepted as admin.
+  tokenPlaceholder: Enter API token
+  invalidToken: Invalid token.
+  checking: Checking...
+  unlock: Unlock
+  heroTitle: Qwen training and inference control panel
+  heroDescription: Upload datasets, maintain captions, queue training, attach LoRA inference, and inspect machine resources.
+resources:
+  cpuInfo: CPU Info
+  noCpuData: No CPU data available
+  cpuLoad: CPU Load
+  memory: Memory
+  disk: Disk
+  noDiskData: No disk data available
+  freeOf: free of {value}
+  datasetsRoot: Datasets
+  trainingRoot: Training
+  inferenceRoot: Inference
+  temperature: Temperature
+  fanSpeed: Fan Speed
+  gpuLoad: GPU Load
+  clockSpeed: Clock Speed
+  powerDraw: Power Draw
+  noGpuData: No GPU data available.

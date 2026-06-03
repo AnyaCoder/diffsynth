@@ -1,0 +1,93 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:../qwen_ui.db"
+}
+
+model Settings {
+  id    Int    @id @default(autoincrement())
+  key   String @unique
+  value String
+}
+
+model Queue {
+  id         Int     @id @default(autoincrement())
+  gpu_ids    String  @unique
+  is_running Boolean @default(false)
+
+  @@index([gpu_ids])
+}
+
+model Job {
+  id               String   @id @default(uuid())
+  name             String   @unique
+  job_type         String
+  status           String   @default("draft")
+  is_archived      Boolean  @default(false)
+  gpu_ids          String
+  queue_position   Int      @default(0)
+  pid              Int?
+  stop_requested   Boolean  @default(false)
+  config_json      String
+  artifact_root    String
+  progress_current Int      @default(0)
+  progress_total   Int      @default(0)
+  info             String   @default("")
+  created_at       DateTime @default(now())
+  updated_at       DateTime @updatedAt
+  finished_at      DateTime?
+
+  @@index([job_type])
+  @@index([status])
+  @@index([is_archived])
+  @@index([gpu_ids])
+}
+
+model AuditLog {
+  id             Int      @id @default(autoincrement())
+  action         String
+  actor_role     String
+  auth_legacy    Boolean  @default(false)
+  detail_json    String?
+  ip_address     String?
+  outcome        String
+  request_method String
+  request_path   String
+  resource_id    String?
+  resource_type  String?
+  status_code    Int
+  user_agent     String?
+  created_at     DateTime @default(now())
+
+  @@index([action])
+  @@index([actor_role])
+  @@index([outcome])
+  @@index([created_at])
+  @@index([resource_type, resource_id])
+}
+
+model InferenceService {
+  id             String   @id @default(uuid())
+  name           String   @unique
+  status         String   @default("draft")
+  gpu_ids        String
+  pid            Int?
+  stop_requested Boolean  @default(false)
+  base_model     String
+  checkpoint_path String
+  use_lora       Boolean  @default(false)
+  source_train_job_id String?
+  artifact_root  String
+  endpoint_url   String?
+  port           Int?
+  info           String   @default("")
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+  finished_at    DateTime?
+
+  @@index([status])
+  @@index([gpu_ids])
+}

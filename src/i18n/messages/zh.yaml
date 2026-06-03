@@ -1,0 +1,315 @@
+common:
+  appTitle: DiffSynth Qwen 控制台
+  language: 语言
+  english: English
+  chinese: 中文
+  working: 处理中...
+  save: 保存
+  saving: 保存中...
+  refresh: 刷新
+  create: 创建
+  delete: 删除
+  cancel: 取消
+  open: 打开
+  settings: 设置
+  datasets: 数据集
+  dashboard: 总览
+  inference: 推理
+  singleInference: 单次推理
+  modelServices: 模型服务
+  jobList: 任务列表
+  newTrain: 新建训练
+  theme: 主题
+  darkConsole: 深色控制台
+  noData: 暂无数据
+  openMenu: 打开菜单
+  resizeLeftPanel: 调整左侧面板宽度
+  drag: 拖动
+sidebar:
+  diffSynth: DiffSynth
+  qwenControl: Qwen 控制台
+  openSettings: 打开设置
+settings:
+  title: 设置
+  runtimePaths: 运行路径
+  runtimePathsHelp: 这些路径决定了数据集、训练输出、推理输出和 conda 环境名称。
+  datasetsRoot: 数据集根目录
+  trainingRoot: 训练输出目录
+  inferenceRoot: 推理输出目录
+  condaEnvName: Conda 环境名
+  saved: 已保存。
+  failed: 保存失败。
+  languageSection: 语言
+  languageHelp: 代码路径以英文为主，界面文本通过 YAML 翻译切换中英文。
+jobs:
+  title: 任务列表
+  allJobs: 全部任务
+  count: 共 {count} 项
+  allTypes: 所有类型
+  train: 训练
+  infer: 推理
+  allStatuses: 所有状态
+  draft: 草稿
+  queued: 排队中
+  running: 运行中
+  stopping: 停止中
+  stopped: 已停止
+  completed: 已完成
+  error: 错误
+  showArchived: 显示归档
+  selected: 已选择 {count} 项
+  selectVisible: 选择当前可见
+  archiveSelected: 批量归档
+  unarchiveSelected: 批量取消归档
+  deleteSelected: 批量删除
+  job: 任务
+  type: 类型
+  gpu: GPU
+  progress: 进度
+  status: 状态
+  updated: 更新时间
+  actions: 操作
+  archived: 已归档
+  locked: 锁定
+  lockedWhileActive: 活动任务不可操作
+  noMatch: 当前筛选下没有任务。
+  more: 展开
+  less: 收起
+  archive: 归档
+  unarchive: 取消归档
+  deleteJob: 删除任务
+  deleteJobs: 删除任务
+  deleteSingleMessage: "删除任务“{name}”？\n\n这会删除任务记录和对应的产物目录。"
+  deleteMultiMessage: "删除 {count} 个任务？\n\n{items}{more}\n\n这会删除这些任务记录和对应的产物目录。"
+  andMore: "\n- 以及另外 {count} 项"
+  selectJob: 选择 {name}
+  openActions: 打开 {name} 的操作菜单
+  allStatusesLabel:
+    draft: 草稿
+    queued: 排队中
+    running: 运行中
+    stopping: 停止中
+    stopped: 已停止
+    completed: 已完成
+    error: 错误
+jobDetail:
+  title: 任务详情
+  type: 类型
+  status: 状态
+  gpu: GPU
+  progress: 进度
+  refreshLog: 刷新日志
+  logAutoRefresh: 自动刷新
+  start: 启动
+  stop: 停止
+  archive: 归档
+  unarchive: 取消归档
+  useInInference: 用于单次推理
+  overview: 概览
+  archived: 已归档
+  yes: 是
+  no: 否
+  noStatusMessage: 暂无状态信息
+  artifacts: 产物
+  results: 结果
+  evalTimeline: Eval 时间线
+  log: 日志
+  noArtifacts: 暂无产物。
+  noResults: 暂无结果。
+  noEvalResults: 暂无 Eval 结果。
+  waitingForLog: 等待日志...
+  trainingProgress: 训练进度
+  stepProgress: 步级进度
+  epochProgress: 轮次进度
+  activeStep: 当前步数
+  eta: 剩余时间
+  speed: 速度
+  elapsed: 已耗时
+  liveProgressPending: 等待实时步级数据
+  deleteSingleMessage: "删除任务“{name}”？\n\n这会删除任务记录和对应的产物目录。"
+  resultPreview: 结果预览
+  openFullscreen: 点击查看大图
+  servedBy: 执行方式
+  servedByService: 复用服务
+  servedByEphemeral: 临时启动
+  prompt: 提示词
+  seed: 种子
+  steps: 步数
+  checkpoint: Checkpoint
+  stepAt: "第 {value} 步"
+  epochAt: "第 {value} 轮"
+  closePreview: 关闭预览
+dashboard:
+  activeTrainJobs: 活跃训练任务
+  recentInference: 最近推理
+  viewAll: 查看全部
+  noActiveTrainJobs: 当前没有活跃训练任务。
+  noInferenceJobs: 还没有推理任务。
+  inferenceJob: 推理任务
+  gpuMonitor: GPU 监控
+  updatedAt: 更新时间 {time}
+datasetsPage:
+  title: 数据集
+  createDataset: 创建数据集
+  datasetNamePlaceholder: 数据集名称
+  datasetList: 数据集列表
+  noDatasets: 暂无数据集。
+  deleteDatasetMessage: "删除数据集“{name}”？"
+datasetDetail:
+  uploadImages: 上传图片
+  upload: 上传
+  chooseFolder: 选择文件夹
+  uploadFolderHint: 支持直接拖拽整个文件夹，自动导入其中所有图片和同名 .txt 标注文件。
+  uploadFolderSubhint: 会保留文件夹内的相对路径，并按同名图片与 .txt 自动配对。
+  noFolderSelected: 还没有选择文件夹或文件。
+  saveCaptions: 保存标注并生成 metadata.csv
+  captioned: 已标注
+  pending: 待标注
+  captionPlaceholder: 标注提示词
+  noImages: 还没有图片。
+trainForm:
+  title: 新建训练任务
+  formTitle: Qwen LoRA 表单
+  commandPreview: 命令预览
+  jobName: 任务名称
+  dataset: 数据集
+  gpuIds: GPU 编号
+  outputPath: 输出路径
+  outputPlaceholder: 可选，默认 models/train/<job-name>
+  learningRate: 学习率
+  epochs: 轮数
+  datasetRepeat: 数据重复次数
+  maxPixels: 最大像素
+  loraRank: LoRA Rank
+  datasetWorkers: 数据集线程数
+  gradAccum: 梯度累积
+  gradientCheckpointing: 梯度检查点
+  findUnusedParams: 查找未使用参数
+  multiGpu: 多卡
+  dragHint: 桌面端支持拖动分隔线调整表单区域宽度。
+  createTrainJob: 创建训练任务
+  select: 选择
+inferencePage:
+  title: 单次推理
+  formTitle: 单次推理
+  recentRequests: 最近请求
+  galleryTitle: 灵感画廊
+  galleryHint: 最近推理结果会以瀑布流方式显示在这里。
+  refreshGallery: 刷新画廊
+  noGalleryResults: 还没有推理结果。
+  jobName: 任务名称
+  prompt: 提示词
+  seed: 种子
+  steps: 步数
+  gpuId: GPU 编号
+  outputPrefix: 输出前缀
+  sourceTrainJob: 来源训练任务
+  modelSource: 模型来源
+  baseModelOption: 仅原始模型
+  baseModelTag: 原始
+  loraTag: LoRA
+  serviceModeLabel: 服务复用
+  serviceModeAuto: 自动匹配
+  serviceModeManual: 指定服务
+  serviceModeAutoHelp: 自动复用任意与当前 GPU 和模型配置匹配的运行中服务。
+  serviceModeManualHelp: 将本次单次推理限定到某一个与当前 GPU 和模型配置匹配的运行中服务。
+  noMatchingService: 当前 GPU 和模型配置下没有可匹配的运行中服务。
+  checkpointAutoFill: 选择训练任务后会自动带出最新 checkpoint 路径。
+  manualCheckpoint: 手动指定 checkpoint
+  checkpointPath: Checkpoint 路径
+  serviceReuseHint: 若已有匹配的常驻模型服务，单次推理会优先复用；否则会临时启动模型执行。
+  runInference: 开始推理
+  started: 已启动
+  noLocalRequests: 还没有本地请求。
+inferenceGallery:
+  eyebrow: 发现流
+  untitled: 未命名
+  delete: 删除
+  cancel: 取消
+  deleteTitle: 删除推理任务
+  deleteMessage: "删除“{name}”？\n\n这会删除对应的推理任务和产物目录。"
+  deleting: 删除中...
+  baseModel: 原始模型
+  gpu: "GPU {value}"
+  seed: "种子 {value}"
+  steps: "{value} 步"
+  expand: 全屏查看
+  favorite: 收藏卡片
+  unfavorite: 取消收藏
+  servedByService: 常驻服务
+  servedByEphemeral: 单次任务
+  openJob: 打开任务
+  filterAll: 全部
+  filterService: 常驻
+  filterLora: LoRA
+  filterBase: 原始
+  historyHint: 新发起的请求会暂时保留在这里，方便快速回看。
+  historyOpen: 打开
+  reuse: 复用提示词
+  rerun: 再生成
+  reuseToastTitle: 已带入表单
+  rerunToastTitle: 推理已入队
+  rerunQueued: 已排入重跑
+servicesPage:
+  title: 推理服务
+  createService: 新建服务
+  serviceList: 服务列表
+  serviceName: 服务名称
+  gpuIds: GPU 编号
+  modelSource: 模型来源
+  checkpointPath: Checkpoint 路径
+  baseModelOnly: 仅原始模型
+  baseTag: 原始
+  loraTag: LoRA
+  loraEnabled: 已挂载 LoRA
+  baseOnly: 仅原始模型
+  start: 启动
+  stop: 停止
+  health: 健康状态
+  endpoint: 地址
+  port: 端口
+  healthStatus: 健康检查
+  modelMode: 模型模式
+  reachable: 可访问
+  unreachable: 不可访问
+  log: 服务日志
+  waitingForLog: 等待服务日志...
+  selectAService: 选择一个服务查看详情。
+  deleteService: 删除服务
+  deleteServiceMessage: "删除服务“{name}”？\n\n这会删除服务记录和对应的运行目录。"
+  statusLabel:
+    draft: 草稿
+    queued: 排队中
+    starting: 启动中
+    running: 运行中
+    stopping: 停止中
+    stopped: 已停止
+    error: 错误
+  noServices: 还没有推理服务。
+auth:
+  access: 访问
+  tokenTitle: API Token
+  tokenHelp: 支持 UI_VIEWER_TOKEN、UI_OPERATOR_TOKEN、UI_ADMIN_TOKEN，旧 UI_AUTH_TOKEN 仍兼容并按管理员权限处理。
+  tokenPlaceholder: 输入 API token
+  invalidToken: Token 无效。
+  checking: 校验中...
+  unlock: 解锁
+  heroTitle: Qwen 训推一体控制台
+  heroDescription: 上传数据集、维护标注、排队训练、挂载 LoRA 推理，并查看整机资源占用。
+resources:
+  cpuInfo: CPU 信息
+  noCpuData: 暂无 CPU 数据
+  cpuLoad: CPU 负载
+  memory: 内存
+  disk: 磁盘
+  noDiskData: 暂无磁盘数据
+  freeOf: 可用 / 总计 {value}
+  datasetsRoot: 数据集
+  trainingRoot: 训练
+  inferenceRoot: 推理
+  temperature: 温度
+  fanSpeed: 风扇转速
+  gpuLoad: GPU 负载
+  clockSpeed: 频率
+  powerDraw: 功耗
+  noGpuData: 暂无 GPU 数据。
