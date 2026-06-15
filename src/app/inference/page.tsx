@@ -11,12 +11,14 @@ import { MainContent, TopBar } from '@/components/layout';
 import {
   buildInferencePrompt,
   DEFAULT_INFERENCE_PROMPT_SELECTION,
+  getPromptGroupOptions,
   getSelectedInferencePromptOptions,
   INFERENCE_PROMPT_GROUPS,
   InferencePromptGroup,
   InferencePromptGroupId,
   InferencePromptOption,
   InferencePromptSelection,
+  normalizeInferencePromptSelection,
 } from '@/domain/inferencePrompt';
 import { buildModelSourceConfig, DEFAULT_INFERENCE_BASE_MODEL } from '@/domain/modelSource';
 import useInferenceServices from '@/hooks/useInferenceServices';
@@ -290,7 +292,7 @@ export default function InferencePage() {
   };
 
   const selectPromptOption = (groupId: InferencePromptGroupId, optionId: string) => {
-    setPromptSelection(prev => ({ ...prev, [groupId]: optionId }));
+    setPromptSelection(prev => normalizeInferencePromptSelection({ ...prev, [groupId]: optionId }));
   };
 
   return (
@@ -390,7 +392,8 @@ export default function InferencePage() {
                   requiredLabel={t('requiredTag')}
                   groups={INFERENCE_PROMPT_GROUPS}
                   selection={promptSelection}
-                  groupTitle={groupId => t(`promptGroups.${groupId}`)}
+                  getOptions={getPromptGroupOptions}
+                  groupTitle={group => t(group.titleKey)}
                   onSelect={selectPromptOption}
                 />
                 <div className="mt-5 grid gap-4 md:grid-cols-2">
@@ -548,6 +551,7 @@ function PromptTagBuilder({
   requiredLabel,
   groups,
   selection,
+  getOptions,
   groupTitle,
   onSelect,
 }: {
@@ -555,7 +559,8 @@ function PromptTagBuilder({
   requiredLabel: string;
   groups: InferencePromptGroup[];
   selection: InferencePromptSelection;
-  groupTitle: (groupId: InferencePromptGroupId) => string;
+  getOptions: (groupId: InferencePromptGroupId, selection: InferencePromptSelection) => InferencePromptOption[];
+  groupTitle: (group: InferencePromptGroup) => string;
   onSelect: (groupId: InferencePromptGroupId, optionId: string) => void;
 }) {
   return (
@@ -567,36 +572,41 @@ function PromptTagBuilder({
         {title}
       </div>
       <div className="mt-3 grid gap-3 lg:grid-cols-2">
-        {groups.map(group => (
-          <div key={group.id} className="rounded-lg border border-gray-800 bg-gray-950/70 p-3">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <div className="text-sm font-semibold text-gray-300">{groupTitle(group.id)}</div>
-              <span className="shrink-0 rounded-md border border-[#0969da]/30 bg-[#0969da]/10 px-2 py-0.5 text-xs font-medium text-[#0969da] dark:border-blue-400/30 dark:bg-blue-500/10 dark:text-blue-300">
-                {requiredLabel}
-              </span>
+        {groups.map(group => {
+          const options = getOptions(group.id, selection);
+          return (
+            <div key={group.id} className="rounded-lg border border-gray-800 bg-gray-950/70 p-3">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div className="text-sm font-semibold text-gray-300">{groupTitle(group)}</div>
+                {group.required ? (
+                  <span className="shrink-0 rounded-md border border-[#0969da]/30 bg-[#0969da]/10 px-2 py-0.5 text-xs font-medium text-[#0969da] dark:border-blue-400/30 dark:bg-blue-500/10 dark:text-blue-300">
+                    {requiredLabel}
+                  </span>
+                ) : null}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {options.map(option => {
+                  const selected = selection[group.id] === option.id;
+                  return (
+                    <button
+                      key={option.id}
+                      type="button"
+                      onClick={() => onSelect(group.id, option.id)}
+                      className={`min-h-9 rounded-md border px-3 py-1.5 text-sm font-medium transition ${
+                        selected
+                          ? 'border-[#0969da] bg-[#0969da] text-white shadow-sm dark:border-blue-500 dark:bg-blue-600'
+                          : 'border-gray-800 bg-gray-900 text-gray-500 hover:border-gray-700 hover:text-gray-300'
+                      }`}
+                      aria-pressed={selected}
+                    >
+                      {option.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-            <div className="flex flex-wrap gap-2">
-              {group.options.map(option => {
-                const selected = selection[group.id] === option.id;
-                return (
-                  <button
-                    key={option.id}
-                    type="button"
-                    onClick={() => onSelect(group.id, option.id)}
-                    className={`min-h-9 rounded-md border px-3 py-1.5 text-sm font-medium transition ${
-                      selected
-                        ? 'border-[#0969da] bg-[#0969da] text-white shadow-sm dark:border-blue-500 dark:bg-blue-600'
-                        : 'border-gray-800 bg-gray-900 text-gray-500 hover:border-gray-700 hover:text-gray-300'
-                    }`}
-                    aria-pressed={selected}
-                  >
-                    {option.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
