@@ -475,6 +475,11 @@ function ModelStatusIndicator({
         <div className="min-w-0">
           <div className="truncate text-sm font-semibold text-gray-300">{modelStatusLabel(status, t)}</div>
           <div className="truncate text-xs text-gray-500">{service ? `GPU ${service.gpu_ids} · ${service.name}` : t('modelNoService')}</div>
+          {service?.status === 'error' && service.info ? (
+            <div className="truncate text-xs text-red-400" title={service.info}>
+              {service.info}
+            </div>
+          ) : null}
         </div>
       </div>
     </div>
