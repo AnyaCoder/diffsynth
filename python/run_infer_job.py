@@ -86,6 +86,27 @@ def build_low_vram_config():
     }
 
 
+def normalize_offload_mode(value):
+    return "none" if value == "none" else "disk_cpu"
+
+
+def build_model_configs(offload_mode):
+    vram_config = build_low_vram_config() if offload_mode == "disk_cpu" else {}
+    return [
+        ModelConfig(model_id="Qwen/Qwen-Image-2512", origin_file_pattern="transformer/diffusion_pytorch_model*.safetensors", **vram_config),
+        ModelConfig(model_id="Qwen/Qwen-Image", origin_file_pattern="text_encoder/model*.safetensors", **vram_config),
+        ModelConfig(model_id="Qwen/Qwen-Image", origin_file_pattern="vae/diffusion_pytorch_model.safetensors", **vram_config),
+    ]
+
+
+def build_pipeline_kwargs(offload_mode):
+    if offload_mode != "disk_cpu":
+        return {}
+    return {
+        "vram_limit": torch.cuda.mem_get_info("cuda")[1] / (1024 ** 3) - 0.5,
+    }
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--job-id", required=True)
@@ -114,18 +135,14 @@ def main():
 
     try:
         with run_dir.log.open("a", encoding="utf-8") as log_file:
-            log_file.write("Loading QwenImagePipeline...\n")
-            vram_config = build_low_vram_config()
+            offload_mode = normalize_offload_mode(spec.get("offload_mode"))
+            log_file.write(f"Loading QwenImagePipeline... offload_mode={offload_mode}\n")
             pipe = QwenImagePipeline.from_pretrained(
                 torch_dtype=torch.bfloat16,
                 device="cuda",
-                model_configs=[
-                    ModelConfig(model_id="Qwen/Qwen-Image-2512", origin_file_pattern="transformer/diffusion_pytorch_model*.safetensors", **vram_config),
-                    ModelConfig(model_id="Qwen/Qwen-Image", origin_file_pattern="text_encoder/model*.safetensors", **vram_config),
-                    ModelConfig(model_id="Qwen/Qwen-Image", origin_file_pattern="vae/diffusion_pytorch_model.safetensors", **vram_config),
-                ],
+                model_configs=build_model_configs(offload_mode),
                 tokenizer_config=ModelConfig(model_id="Qwen/Qwen-Image", origin_file_pattern="tokenizer/"),
-                vram_limit=torch.cuda.mem_get_info("cuda")[1] / (1024 ** 3) - 0.5,
+                **build_pipeline_kwargs(offload_mode),
             )
             checkpoint_path = resolve_checkpoint_path(spec.get("checkpoint_path"))
             use_lora = bool(spec.get("use_lora", bool(checkpoint_path)))
@@ -150,6 +167,7 @@ def main():
                 "seed": spec["seed"],
                 "num_inference_steps": spec["num_inference_steps"],
                 "checkpoint_path": checkpoint_path,
+                "offload_mode": offload_mode,
                 "use_lora": use_lora,
                 "base_model": spec.get("base_model"),
                 "created_at": now_iso(),

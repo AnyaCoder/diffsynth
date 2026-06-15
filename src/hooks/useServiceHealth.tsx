@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { apiClient } from '@/utils/api';
+import type { InferenceOffloadMode } from '@/types';
 
 export interface ServiceHealth {
   reachable: boolean;
@@ -11,6 +12,7 @@ export interface ServiceHealth {
   service_id?: string;
   name?: string;
   gpu_ids?: string;
+  offload_mode?: InferenceOffloadMode;
   port?: number | null;
   use_lora?: boolean;
   base_model?: string;

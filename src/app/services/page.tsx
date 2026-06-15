@@ -6,6 +6,7 @@ import ConfirmDialog from '@/components/ConfirmDialog';
 import ModelSourceSelect from '@/components/ModelSourceSelect';
 import { useToast } from '@/components/ToastProvider';
 import { MainContent, TopBar } from '@/components/layout';
+import { DEFAULT_INFERENCE_OFFLOAD_MODE, normalizeInferenceOffloadMode } from '@/domain/inferenceRuntime';
 import { buildModelSourceConfig } from '@/domain/modelSource';
 import useGPUInfo from '@/hooks/useGPUInfo';
 import useInferenceServices from '@/hooks/useInferenceServices';
@@ -13,6 +14,7 @@ import useJobsList from '@/hooks/useJobsList';
 import useModelSourceSelection from '@/hooks/useModelSourceSelection';
 import useServiceHealth from '@/hooks/useServiceHealth';
 import useServiceLog from '@/hooks/useServiceLog';
+import type { InferenceOffloadMode } from '@/types';
 import { apiClient } from '@/utils/api';
 
 export default function ServicesPage() {
@@ -25,6 +27,7 @@ export default function ServicesPage() {
 
   const [name, setName] = useState(`service_${Date.now()}`);
   const [gpuIds, setGpuIds] = useState('');
+  const [offloadMode, setOffloadMode] = useState<InferenceOffloadMode>(DEFAULT_INFERENCE_OFFLOAD_MODE);
   const [selectedServiceId, setSelectedServiceId] = useState('');
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
@@ -66,6 +69,7 @@ export default function ServicesPage() {
         name,
         config: {
           gpu_ids: gpuIds,
+          offload_mode: offloadMode,
           ...buildModelSourceConfig(selectedModelSource, checkpointPath),
         },
       });
@@ -134,6 +138,15 @@ export default function ServicesPage() {
           <div className="mt-5 grid grid-cols-1 gap-4 xl:grid-cols-2">
             <Field label={t('serviceName')} value={name} onChange={setName} />
             <Field label={t('gpuIds')} value={gpuIds} onChange={setGpuIds} />
+            <SelectField
+              label={t('offloadMode')}
+              value={offloadMode}
+              onChange={value => setOffloadMode(normalizeInferenceOffloadMode(value))}
+              options={[
+                { value: 'disk_cpu', label: t('offloadModeDiskCpu') },
+                { value: 'none', label: t('offloadModeNone') },
+              ]}
+            />
             <div className="xl:col-span-2">
               <ModelSourceSelect
                 label={t('modelSource')}
@@ -178,7 +191,7 @@ export default function ServicesPage() {
                       <div className="min-w-0">
                         <div className="truncate font-medium text-gray-100">{service.name}</div>
                         <div className="mt-1 text-xs text-gray-500">
-                          GPU {service.gpu_ids} · {service.use_lora ? t('loraEnabled') : t('baseOnly')}
+                          GPU {service.gpu_ids} · {service.use_lora ? t('loraEnabled') : t('baseOnly')} · {offloadModeLabel(normalizeInferenceOffloadMode(service.offload_mode), t)}
                         </div>
                         <div className="mt-1 text-xs text-gray-500">{service.info}</div>
                       </div>
@@ -246,6 +259,7 @@ export default function ServicesPage() {
                   <InfoRow label={t('port')} value={String(health?.port ?? selectedService.port ?? '-')} />
                   <InfoRow label={t('healthStatus')} value={health?.reachable ? t('reachable') : health?.error || t('unreachable')} />
                   <InfoRow label={t('modelMode')} value={selectedService.use_lora ? t('loraEnabled') : t('baseOnly')} />
+                  <InfoRow label={t('offloadMode')} value={offloadModeLabel(normalizeInferenceOffloadMode(selectedService.offload_mode), t)} />
                 </div>
               )}
             </section>
@@ -301,6 +315,39 @@ function Field({ label, value, onChange }: { label: string; value: string; onCha
       />
     </label>
   );
+}
+
+function SelectField({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: { value: string; label: string }[];
+}) {
+  return (
+    <label className="block">
+      <div className="mb-2 text-sm text-gray-400">{label}</div>
+      <select
+        value={value}
+        onChange={event => onChange(event.target.value)}
+        className="w-full rounded-lg border border-gray-800 bg-gray-950 px-4 py-3 text-gray-100 outline-none focus:border-blue-500"
+      >
+        {options.map(option => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function offloadModeLabel(value: InferenceOffloadMode, t: ReturnType<typeof useTranslations<'servicesPage'>>) {
+  return value === 'none' ? t('offloadModeNone') : t('offloadModeDiskCpu');
 }
 
 function InfoRow({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {

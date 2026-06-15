@@ -3,7 +3,7 @@
 import type { ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { Loader2, Play, Power, PowerOff, RefreshCw, SlidersHorizontal, Tags } from 'lucide-react';
+import { ChevronDown, Loader2, Play, Power, PowerOff, RefreshCw, SlidersHorizontal, Tags } from 'lucide-react';
 import InferenceOutputPanel, { InferenceHistoryItem } from '@/components/InferenceOutputPanel';
 import ModelSourceSelect from '@/components/ModelSourceSelect';
 import { useToast } from '@/components/ToastProvider';
@@ -20,6 +20,7 @@ import {
   InferencePromptSelection,
   normalizeInferencePromptSelection,
 } from '@/domain/inferencePrompt';
+import { DEFAULT_INFERENCE_OFFLOAD_MODE, normalizeInferenceOffloadMode } from '@/domain/inferenceRuntime';
 import { buildModelSourceConfig, DEFAULT_INFERENCE_BASE_MODEL } from '@/domain/modelSource';
 import useInferenceServices from '@/hooks/useInferenceServices';
 import useGPUInfo from '@/hooks/useGPUInfo';
@@ -29,9 +30,10 @@ import useJobsList from '@/hooks/useJobsList';
 import useModelSourceSelection from '@/hooks/useModelSourceSelection';
 import useRecentInferenceResults from '@/hooks/useRecentInferenceResults';
 import { apiClient } from '@/utils/api';
-import { InferenceServiceSummary, JobResult, JobSummary } from '@/types';
+import { InferenceOffloadMode, InferenceServiceSummary, JobResult, JobSummary } from '@/types';
 
 const GPU_IDS_STORAGE_KEY = 'qwen.inference.gpuIds';
+const OFFLOAD_MODE_STORAGE_KEY = 'qwen.inference.offloadMode';
 
 export default function InferencePage() {
   const t = useTranslations('inferencePage');
@@ -46,6 +48,7 @@ export default function InferencePage() {
   const [seed, setSeed] = useState(0);
   const [steps, setSteps] = useState(40);
   const [gpuIds, setGpuIds] = useState('');
+  const [offloadMode, setOffloadMode] = useState<InferenceOffloadMode>(DEFAULT_INFERENCE_OFFLOAD_MODE);
   const [gpuIdsRestored, setGpuIdsRestored] = useState(false);
   const [userChangedGpuIds, setUserChangedGpuIds] = useState(false);
   const [outputPrefix, setOutputPrefix] = useState('image');
@@ -75,8 +78,8 @@ export default function InferencePage() {
     [selectedModelSource, checkpointPath]
   );
   const modelShapeServices = useMemo(
-    () => services.filter(service => serviceMatchesModelShape(service, { selectedModelSource, checkpointPath })),
-    [services, selectedModelSource, checkpointPath]
+    () => services.filter(service => serviceMatchesModelShape(service, { selectedModelSource, checkpointPath, offloadMode })),
+    [services, selectedModelSource, checkpointPath, offloadMode]
   );
   const configuredModelServices = useMemo(
     () => modelShapeServices.filter(service => service.gpu_ids.trim() === gpuIds.trim()),
@@ -122,6 +125,8 @@ export default function InferencePage() {
     if (storedGpuIds) {
       setGpuIds(storedGpuIds);
     }
+    const storedOffloadMode = window.localStorage.getItem(OFFLOAD_MODE_STORAGE_KEY);
+    setOffloadMode(normalizeInferenceOffloadMode(storedOffloadMode));
     setGpuIdsRestored(true);
   }, []);
 
@@ -145,6 +150,11 @@ export default function InferencePage() {
   }, [gpuIds, gpuIdsRestored]);
 
   useEffect(() => {
+    if (!gpuIdsRestored) return;
+    window.localStorage.setItem(OFFLOAD_MODE_STORAGE_KEY, offloadMode);
+  }, [offloadMode, gpuIdsRestored]);
+
+  useEffect(() => {
     const trainJobId = new URLSearchParams(window.location.search).get('trainJobId');
     if (trainJobId) {
       setSourceTrainJobId(trainJobId);
@@ -161,6 +171,7 @@ export default function InferencePage() {
           name: `infer_service_${Date.now()}`,
           config: {
             gpu_ids: gpuIds,
+            offload_mode: offloadMode,
             ...modelSourceConfig,
           },
         });
@@ -203,6 +214,7 @@ export default function InferencePage() {
           num_inference_steps: steps,
           output_prefix: outputPrefix,
           gpu_ids: gpuIds,
+          offload_mode: offloadMode,
           ...modelSourceConfig,
           preferred_service_id: runningModelService.id,
         },
@@ -253,6 +265,7 @@ export default function InferencePage() {
           num_inference_steps: item.num_inference_steps,
           output_prefix: outputPrefix,
           gpu_ids: item.gpu_ids || gpuIds,
+          offload_mode: offloadMode,
           checkpoint_path: item.checkpoint_path,
           base_model: item.base_model || DEFAULT_INFERENCE_BASE_MODEL,
           use_lora: item.use_lora,
@@ -303,59 +316,41 @@ export default function InferencePage() {
       <MainContent className="pb-6">
         <div className="mx-auto max-w-[1680px] space-y-3">
           <section data-layout-area="quick-settings" className="rounded-lg border border-gray-800 bg-gray-900 p-3">
-            <div className="grid gap-3 xl:grid-cols-[minmax(240px,0.9fr)_minmax(280px,1.25fr)_minmax(96px,0.32fr)_minmax(170px,auto)_auto_auto_auto] xl:items-end">
-              <ModelSourceSelect
-                label={t('modelSource')}
-                options={modelSourceOptions}
-                value={selectedModelSource}
-                onChange={selectModelSource}
-                kindLabels={{ base: t('baseModelTag'), lora: t('loraTag') }}
+            <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(360px,410px)] xl:items-stretch">
+              <div className="grid gap-3 lg:grid-cols-[minmax(220px,0.9fr)_minmax(260px,1.15fr)_minmax(92px,0.28fr)_minmax(180px,0.48fr)] lg:items-end">
+                <ModelSourceSelect
+                  label={t('modelSource')}
+                  options={modelSourceOptions}
+                  value={selectedModelSource}
+                  onChange={selectModelSource}
+                  kindLabels={{ base: t('baseModelTag'), lora: t('loraTag') }}
+                />
+                <Field label={t('checkpointPath')} value={checkpointPath} onChange={setCheckpointPath} compact />
+                <Field
+                  label={t('gpuId')}
+                  value={gpuIds}
+                  onChange={value => {
+                    setUserChangedGpuIds(true);
+                    setGpuIds(value);
+                  }}
+                  compact
+                />
+                <ModelStatusIndicator status={modelStatus} service={controlledModelService} busy={Boolean(modelAction) || modelIsTransitioning} t={t} />
+              </div>
+              <ModelActionGrid
+                t={t}
+                offloadMode={offloadMode}
+                onOffloadModeChange={setOffloadMode}
+                modelAction={modelAction}
+                modelStatus={modelStatus}
+                modelIsRunning={modelIsRunning}
+                modelIsTransitioning={modelIsTransitioning}
+                hasControlledService={Boolean(controlledModelService)}
+                hasGpuIds={Boolean(gpuIds.trim())}
+                onLoad={loadModel}
+                onUnload={unloadModel}
+                onRefresh={refreshRecentResults}
               />
-              <Field label={t('checkpointPath')} value={checkpointPath} onChange={setCheckpointPath} compact />
-              <Field
-                label={t('gpuId')}
-                value={gpuIds}
-                onChange={value => {
-                  setUserChangedGpuIds(true);
-                  setGpuIds(value);
-                }}
-                compact
-              />
-              <ModelStatusIndicator status={modelStatus} service={controlledModelService} busy={Boolean(modelAction) || modelIsTransitioning} t={t} />
-              <button
-                type="button"
-                onClick={() => void loadModel()}
-                disabled={Boolean(modelAction) || modelIsRunning || modelIsTransitioning || !gpuIds.trim()}
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-gray-800 bg-[#0969da] px-3 text-sm font-medium text-white transition hover:bg-[#0550ae] disabled:cursor-not-allowed disabled:border-gray-800 disabled:bg-gray-950 disabled:text-gray-500 dark:bg-blue-600 dark:hover:bg-blue-500 dark:disabled:bg-gray-950"
-              >
-                {modelAction === 'load' || ['queued', 'starting'].includes(modelStatus) ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Power className="h-4 w-4" />
-                )}
-                {modelAction === 'load' || ['queued', 'starting'].includes(modelStatus) ? t('loadingModel') : t('loadModel')}
-              </button>
-              <button
-                type="button"
-                onClick={() => void unloadModel()}
-                disabled={Boolean(modelAction) || !controlledModelService || ['not_loaded', 'draft', 'stopped', 'stopping', 'error'].includes(modelStatus)}
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-gray-800 bg-gray-950 px-3 text-sm font-medium text-gray-500 transition hover:border-gray-700 hover:bg-gray-900 hover:text-gray-300 disabled:cursor-not-allowed disabled:text-gray-600"
-              >
-                {modelAction === 'unload' || modelStatus === 'stopping' ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <PowerOff className="h-4 w-4" />
-                )}
-                {modelAction === 'unload' || modelStatus === 'stopping' ? t('unloadingModel') : t('unloadModel')}
-              </button>
-              <button
-                type="button"
-                onClick={refreshRecentResults}
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-gray-800 bg-gray-950 px-3 text-sm font-medium text-gray-500 transition hover:border-gray-700 hover:bg-gray-900 hover:text-gray-300"
-              >
-                <RefreshCw className="h-4 w-4" />
-                {t('refreshOutput')}
-              </button>
             </div>
           </section>
 
@@ -502,8 +497,10 @@ function serviceMatchesModelShape(
   config: {
     selectedModelSource: { kind: string; sourceTrainJobId: string | null; baseModel: string };
     checkpointPath: string;
+    offloadMode: InferenceOffloadMode;
   },
 ) {
+  if (normalizeInferenceOffloadMode(service.offload_mode) !== normalizeInferenceOffloadMode(config.offloadMode)) return false;
   if (service.base_model.trim() !== config.selectedModelSource.baseModel.trim()) return false;
   if (Boolean(service.use_lora) !== (config.selectedModelSource.kind === 'lora')) return false;
   if (config.selectedModelSource.kind !== 'lora') return true;
@@ -512,6 +509,103 @@ function serviceMatchesModelShape(
   const serviceSourceTrainJobId = service.source_train_job_id?.trim() || null;
   if (selectedSourceTrainJobId && selectedSourceTrainJobId === serviceSourceTrainJobId) return true;
   return service.checkpoint_path.trim() === config.checkpointPath.trim();
+}
+
+function ModelActionGrid({
+  t,
+  offloadMode,
+  onOffloadModeChange,
+  modelAction,
+  modelStatus,
+  modelIsRunning,
+  modelIsTransitioning,
+  hasControlledService,
+  hasGpuIds,
+  onLoad,
+  onUnload,
+  onRefresh,
+}: {
+  t: ReturnType<typeof useTranslations<'inferencePage'>>;
+  offloadMode: InferenceOffloadMode;
+  onOffloadModeChange: (value: InferenceOffloadMode) => void;
+  modelAction: 'load' | 'unload' | null;
+  modelStatus: string;
+  modelIsRunning: boolean;
+  modelIsTransitioning: boolean;
+  hasControlledService: boolean;
+  hasGpuIds: boolean;
+  onLoad: () => Promise<void>;
+  onUnload: () => Promise<void>;
+  onRefresh: () => void;
+}) {
+  const loading = modelAction === 'load' || ['queued', 'starting'].includes(modelStatus);
+  const unloading = modelAction === 'unload' || modelStatus === 'stopping';
+  return (
+    <div className="grid grid-cols-2 gap-2 rounded-lg border border-gray-800 bg-gray-950/70 p-2 shadow-sm backdrop-blur">
+      <button
+        type="button"
+        onClick={() => void onLoad()}
+        disabled={Boolean(modelAction) || modelIsRunning || modelIsTransitioning || !hasGpuIds}
+        className="inline-flex h-12 min-w-0 items-center justify-center gap-2 rounded-md border border-[#0969da] bg-[#0969da] px-3 text-sm font-semibold text-white transition hover:bg-[#0550ae] disabled:cursor-not-allowed disabled:border-gray-800 disabled:bg-gray-900 disabled:text-gray-500 dark:border-blue-600 dark:bg-blue-600 dark:hover:bg-blue-500 dark:disabled:border-gray-800 dark:disabled:bg-gray-900"
+      >
+        {loading ? <Loader2 className="h-4 w-4 shrink-0 animate-spin" /> : <Power className="h-4 w-4 shrink-0" />}
+        <span className="truncate">{loading ? t('loadingModel') : t('loadModel')}</span>
+      </button>
+      <button
+        type="button"
+        onClick={() => void onUnload()}
+        disabled={Boolean(modelAction) || !hasControlledService || ['not_loaded', 'draft', 'stopped', 'stopping', 'error'].includes(modelStatus)}
+        className="inline-flex h-12 min-w-0 items-center justify-center gap-2 rounded-md border border-gray-800 bg-gray-950 px-3 text-sm font-semibold text-gray-500 transition hover:border-gray-700 hover:bg-gray-900 hover:text-gray-300 disabled:cursor-not-allowed disabled:text-gray-600"
+      >
+        {unloading ? <Loader2 className="h-4 w-4 shrink-0 animate-spin" /> : <PowerOff className="h-4 w-4 shrink-0" />}
+        <span className="truncate">{unloading ? t('unloadingModel') : t('unloadModel')}</span>
+      </button>
+      <OffloadModeSelect
+        value={offloadMode}
+        onChange={onOffloadModeChange}
+        label={t('offloadMode')}
+        residentLabel={t('offloadModeNone')}
+        offloadLabel={t('offloadModeDiskCpu')}
+      />
+      <button
+        type="button"
+        onClick={onRefresh}
+        className="inline-flex h-12 min-w-0 items-center justify-center gap-2 rounded-md border border-gray-800 bg-gray-950 px-3 text-sm font-semibold text-gray-500 transition hover:border-gray-700 hover:bg-gray-900 hover:text-gray-300"
+      >
+        <RefreshCw className="h-4 w-4 shrink-0" />
+        <span className="truncate">{t('refreshOutput')}</span>
+      </button>
+    </div>
+  );
+}
+
+function OffloadModeSelect({
+  value,
+  onChange,
+  label,
+  residentLabel,
+  offloadLabel,
+}: {
+  value: InferenceOffloadMode;
+  onChange: (value: InferenceOffloadMode) => void;
+  label: string;
+  residentLabel: string;
+  offloadLabel: string;
+}) {
+  return (
+    <label className="relative flex h-12 min-w-0 items-center rounded-md border border-gray-800 bg-gray-950 px-3 text-sm font-semibold text-gray-500 transition focus-within:border-gray-600 hover:border-gray-700 hover:text-gray-300">
+      <span className="mr-2 shrink-0 text-xs font-medium text-gray-500">{label}</span>
+      <select
+        value={value}
+        onChange={event => onChange(normalizeInferenceOffloadMode(event.target.value))}
+        className="min-w-0 flex-1 appearance-none bg-transparent pr-6 text-sm font-semibold text-gray-300 outline-none"
+      >
+        <option value="disk_cpu">{offloadLabel}</option>
+        <option value="none">{residentLabel}</option>
+      </select>
+      <ChevronDown className="pointer-events-none absolute right-3 h-4 w-4 text-gray-500" />
+    </label>
+  );
 }
 
 function SectionTitle({ icon, title }: { icon: ReactNode; title: string }) {

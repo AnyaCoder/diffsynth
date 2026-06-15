@@ -232,6 +232,9 @@ inferencePage:
   seed: Seed
   steps: Steps
   gpuId: GPU ID
+  offloadMode: Offload
+  offloadModeDiskCpu: Disk/CPU
+  offloadModeNone: Resident
   outputPrefix: Output Prefix
   sourceTrainJob: Source Train Job
   modelSource: Model Source
@@ -302,6 +305,9 @@ servicesPage:
   serviceList: Service List
   serviceName: Service Name
   gpuIds: GPU IDs
+  offloadMode: Offload
+  offloadModeDiskCpu: Disk/CPU
+  offloadModeNone: Resident
   modelSource: Model Source
   checkpointPath: Checkpoint Path
   baseModelOnly: Base model only

@@ -61,6 +61,27 @@ def build_low_vram_config():
     }
 
 
+def normalize_offload_mode(value):
+    return "none" if value == "none" else "disk_cpu"
+
+
+def build_model_configs(offload_mode):
+    vram_config = build_low_vram_config() if offload_mode == "disk_cpu" else {}
+    return [
+        ModelConfig(model_id="Qwen/Qwen-Image-2512", origin_file_pattern="transformer/diffusion_pytorch_model*.safetensors", **vram_config),
+        ModelConfig(model_id="Qwen/Qwen-Image", origin_file_pattern="text_encoder/model*.safetensors", **vram_config),
+        ModelConfig(model_id="Qwen/Qwen-Image", origin_file_pattern="vae/diffusion_pytorch_model.safetensors", **vram_config),
+    ]
+
+
+def build_pipeline_kwargs(offload_mode):
+    if offload_mode != "disk_cpu":
+        return {}
+    return {
+        "vram_limit": torch.cuda.mem_get_info("cuda")[1] / (1024 ** 3) - 0.5,
+    }
+
+
 def pick_free_port():
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         sock.bind(("127.0.0.1", 0))
@@ -94,6 +115,7 @@ def main():
             "config": {
                 "name": service["name"],
                 "gpu_ids": service["gpu_ids"],
+                "offload_mode": normalize_offload_mode(service.get("offload_mode")),
                 "base_model": service["base_model"],
                 "checkpoint_path": service["checkpoint_path"],
                 "use_lora": bool(service["use_lora"]),
@@ -129,18 +151,14 @@ def main():
     signal.signal(signal.SIGINT, handle_stop)
 
     try:
-        log("Loading QwenImagePipeline for service...")
-        vram_config = build_low_vram_config()
+        offload_mode = normalize_offload_mode(service.get("offload_mode"))
+        log(f"Loading QwenImagePipeline for service... offload_mode={offload_mode}")
         pipe = QwenImagePipeline.from_pretrained(
             torch_dtype=torch.bfloat16,
             device="cuda",
-            model_configs=[
-                ModelConfig(model_id="Qwen/Qwen-Image-2512", origin_file_pattern="transformer/diffusion_pytorch_model*.safetensors", **vram_config),
-                ModelConfig(model_id="Qwen/Qwen-Image", origin_file_pattern="text_encoder/model*.safetensors", **vram_config),
-                ModelConfig(model_id="Qwen/Qwen-Image", origin_file_pattern="vae/diffusion_pytorch_model.safetensors", **vram_config),
-            ],
+            model_configs=build_model_configs(offload_mode),
             tokenizer_config=ModelConfig(model_id="Qwen/Qwen-Image", origin_file_pattern="tokenizer/"),
-            vram_limit=torch.cuda.mem_get_info("cuda")[1] / (1024 ** 3) - 0.5,
+            **build_pipeline_kwargs(offload_mode),
         )
 
         if bool(service["use_lora"]) and service["checkpoint_path"]:
@@ -175,6 +193,7 @@ def main():
                 "service_id": args.service_id,
                 "name": latest["name"],
                 "gpu_ids": latest["gpu_ids"],
+                "offload_mode": normalize_offload_mode(latest.get("offload_mode")),
                 "port": latest["port"],
                 "use_lora": bool(latest["use_lora"]),
                 "base_model": latest["base_model"],
@@ -208,6 +227,7 @@ def main():
                         "num_inference_steps": payload.num_inference_steps,
                         "created_at": now_iso(),
                         "checkpoint_path": service["checkpoint_path"],
+                        "offload_mode": offload_mode,
                         "use_lora": bool(service["use_lora"]),
                         "base_model": service["base_model"],
                         "source_train_job_id": service["source_train_job_id"],

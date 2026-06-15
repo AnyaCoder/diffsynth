@@ -95,12 +95,15 @@ export interface TrainJobConfig {
   resolved_num_processes?: number;
 }
 
+export type InferenceOffloadMode = 'disk_cpu' | 'none';
+
 export interface InferJobConfig {
   prompt: string;
   seed: number;
   num_inference_steps: number;
   output_prefix: string;
   gpu_ids: string;
+  offload_mode?: InferenceOffloadMode;
   checkpoint_path: string;
   base_model: string;
   use_lora?: boolean;
@@ -153,6 +156,7 @@ export interface JobResult {
   job_name?: string;
   job_status?: string;
   gpu_ids?: string;
+  offload_mode?: InferenceOffloadMode;
   step?: number | null;
   epoch?: number | null;
 }
@@ -175,6 +179,7 @@ export interface InferenceServiceSummary {
   name: string;
   status: string;
   gpu_ids: string;
+  offload_mode: InferenceOffloadMode;
   pid?: number | null;
   stop_requested?: boolean;
   base_model: string;

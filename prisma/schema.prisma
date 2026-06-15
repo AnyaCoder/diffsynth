@@ -74,6 +74,7 @@ model InferenceService {
   name           String   @unique
   status         String   @default("draft")
   gpu_ids        String
+  offload_mode   String   @default("disk_cpu")
   pid            Int?
   stop_requested Boolean  @default(false)
   base_model     String

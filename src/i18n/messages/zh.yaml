@@ -232,6 +232,9 @@ inferencePage:
   seed: 种子
   steps: 步数
   gpuId: GPU 编号
+  offloadMode: Offload
+  offloadModeDiskCpu: Disk/CPU
+  offloadModeNone: 常驻显存
   outputPrefix: 输出前缀
   sourceTrainJob: 来源训练任务
   modelSource: 模型来源
@@ -302,6 +305,9 @@ servicesPage:
   serviceList: 服务列表
   serviceName: 服务名称
   gpuIds: GPU 编号
+  offloadMode: Offload
+  offloadModeDiskCpu: Disk/CPU
+  offloadModeNone: 常驻显存
   modelSource: 模型来源
   checkpointPath: Checkpoint 路径
   baseModelOnly: 仅原始模型

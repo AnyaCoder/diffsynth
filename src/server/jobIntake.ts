@@ -135,6 +135,7 @@ async function createInferJob(name: string, body: any) {
     ...(body.config ?? {}),
     prompt: String(body.config?.prompt || '').trim(),
     gpu_ids: String(body.config?.gpu_ids || '').trim(),
+    offload_mode: body.config?.offload_mode,
     output_prefix: String(body.config?.output_prefix || '').trim(),
     checkpoint_path: String(body.config?.checkpoint_path || '').trim(),
     base_model: String(body.config?.base_model || 'Qwen/Qwen-Image-2512').trim(),

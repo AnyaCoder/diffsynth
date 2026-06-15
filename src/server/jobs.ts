@@ -6,6 +6,7 @@ import { getInferenceRoot, getTrainingRoot } from './settings';
 import { ensureDir } from '../paths';
 import { classifyJobRunFile, getJobRunDirectory } from './jobRunDirectory';
 import { readTextLogFile } from './logs';
+import { normalizeInferenceOffloadMode } from '../domain/inferenceRuntime';
 export { buildDefaultTrainConfig, buildTrainCommand, getTrainProcessCount, resolveTrainCommandConfig } from '../domain/trainCommand';
 
 function listCheckpointFiles(root: string) {
@@ -86,6 +87,7 @@ export async function listResults(jobId: string): Promise<JobResult[]> {
           seed: parsed.seed ?? 0,
           num_inference_steps: parsed.num_inference_steps ?? 0,
           checkpoint_path: parsed.checkpoint_path ?? '',
+          offload_mode: normalizeInferenceOffloadMode(parsed.offload_mode),
           created_at: parsed.created_at ?? fs.statSync(fullPath).mtime.toISOString(),
           source_train_job_id: job.id,
           served_by: 'ephemeral',
@@ -120,6 +122,7 @@ export async function listResults(jobId: string): Promise<JobResult[]> {
       seed: parsed.seed,
       num_inference_steps: parsed.num_inference_steps,
       checkpoint_path: parsed.checkpoint_path,
+      offload_mode: normalizeInferenceOffloadMode(parsed.offload_mode),
       created_at: parsed.created_at,
       source_train_job_id: parsed.source_train_job_id ?? null,
       service_id: parsed.service_id ?? null,
@@ -158,6 +161,7 @@ export async function listRecentInferenceResults(limit = 18): Promise<JobResult[
       seed: parsed.seed,
       num_inference_steps: parsed.num_inference_steps,
       checkpoint_path: parsed.checkpoint_path,
+      offload_mode: normalizeInferenceOffloadMode(parsed.offload_mode),
       created_at: parsed.created_at,
       source_train_job_id: parsed.source_train_job_id ?? null,
       service_id: parsed.service_id ?? null,
@@ -216,6 +220,7 @@ export async function resolveInferenceConfig(config: InferJobConfig): Promise<In
   return {
     ...config,
     checkpoint_path: useLora ? checkpointPath : '',
+    offload_mode: normalizeInferenceOffloadMode(config.offload_mode),
     use_lora: useLora,
     source_train_job_id: useLora ? config.source_train_job_id ?? null : null,
     preferred_service_id: config.preferred_service_id?.trim() || null,

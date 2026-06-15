@@ -12,11 +12,13 @@ import { readTextLogFile } from './logs';
 import { resolveCondaPath } from './pythonPath';
 import { ensurePathInsideRoots } from './security';
 import { readInferConfigFromJson } from '../domain/jobSpec';
+import { normalizeInferenceOffloadMode, inferenceOffloadModeMatches } from '../domain/inferenceRuntime';
 
 interface InferenceServiceRuntime {
   id: string;
   name: string;
   gpu_ids: string;
+  offload_mode: string;
   artifact_root: string;
 }
 
@@ -31,6 +33,7 @@ function buildServiceSpec(service: Awaited<ReturnType<typeof getInferenceService
     config: {
       name: service?.name,
       gpu_ids: service?.gpu_ids,
+      offload_mode: normalizeInferenceOffloadMode(service?.offload_mode),
       base_model: service?.base_model,
       checkpoint_path: service?.checkpoint_path,
       use_lora: service?.use_lora,
@@ -59,6 +62,7 @@ export async function createInferenceServiceFromRequest(body: any) {
     ...(body.config ?? {}),
     prompt: String(body.config?.prompt || '').trim(),
     gpu_ids: String(body.config?.gpu_ids || '').trim(),
+    offload_mode: body.config?.offload_mode,
     output_prefix: '',
     checkpoint_path: String(body.config?.checkpoint_path || '').trim(),
     base_model: String(body.config?.base_model || 'Qwen/Qwen-Image-2512').trim(),
@@ -82,6 +86,7 @@ export async function createInferenceServiceFromRequest(body: any) {
       name,
       status: 'draft',
       gpu_ids: resolvedConfig.gpu_ids,
+      offload_mode: normalizeInferenceOffloadMode(resolvedConfig.offload_mode),
       base_model: resolvedConfig.base_model,
       checkpoint_path: resolvedConfig.checkpoint_path,
       use_lora: Boolean(resolvedConfig.use_lora),
@@ -330,6 +335,7 @@ export async function findMatchingRunningInferenceService(config: {
   use_lora?: boolean;
   source_train_job_id?: string | null;
   preferred_service_id?: string | null;
+  offload_mode?: string | null;
 }) {
   const runningServices = await prisma.inferenceService.findMany({
     where: { status: 'running' },
@@ -339,12 +345,14 @@ export async function findMatchingRunningInferenceService(config: {
   const preferredId = config.preferred_service_id?.trim() || null;
   const wantUseLora = Boolean(config.use_lora);
   const normalizedGpuIds = config.gpu_ids.trim();
+  const normalizedOffloadMode = normalizeInferenceOffloadMode(config.offload_mode);
   const normalizedBaseModel = config.base_model.trim();
   const normalizedCheckpoint = config.checkpoint_path.trim();
   const normalizedSourceTrainJobId = config.source_train_job_id?.trim() || null;
 
   const matches = runningServices.filter(service => {
     if (service.gpu_ids.trim() !== normalizedGpuIds) return false;
+    if (!inferenceOffloadModeMatches(service.offload_mode, normalizedOffloadMode)) return false;
     if (service.base_model.trim() !== normalizedBaseModel) return false;
     if (Boolean(service.use_lora) !== wantUseLora) return false;
     if (!wantUseLora) return true;
