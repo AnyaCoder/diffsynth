@@ -54,8 +54,8 @@ export default function InferenceGallery({
   if (items.length === 0) {
     return (
       <div
-        className={`rounded-[28px] border border-dashed px-6 py-20 text-center text-sm text-gray-500 ${
-          isDark ? 'border-gray-800 bg-gray-950/70' : 'border-gray-300 bg-gray-100'
+        className={`rounded-lg border border-dashed px-6 py-20 text-center text-sm text-gray-500 ${
+          isDark ? 'border-gray-800 bg-gray-950/70' : 'border-gray-800 bg-gray-950'
         }`}
       >
         {emptyLabel}
@@ -78,7 +78,7 @@ export default function InferenceGallery({
               className={`group relative mb-5 break-inside-avoid overflow-hidden rounded-[32px] border transition duration-500 hover:-translate-y-1 ${
                 isDark
                   ? 'border-white/6 bg-[#090b0d] shadow-[0_26px_80px_rgba(0,0,0,0.36)] hover:border-white/12'
-                  : 'border-gray-300 bg-gray-100 shadow-[0_12px_30px_rgba(15,23,42,0.06)] hover:border-gray-400'
+                  : 'border-gray-800 bg-gray-950 shadow-sm hover:border-gray-700'
               }`}
             >
               <div className={`pointer-events-none absolute inset-0 z-[1] opacity-0 transition duration-500 group-hover:opacity-100 ${modeTone.glowClassName}`} />
@@ -123,7 +123,7 @@ export default function InferenceGallery({
                         className={`rounded-full border p-2 backdrop-blur-sm transition ${
                           isDark
                             ? 'border-red-400/28 bg-red-500/14 text-red-100 hover:border-red-300/40 hover:bg-red-500/20 hover:text-white'
-                            : 'border-gray-400 bg-gray-100/88 text-red-500 hover:border-gray-500 hover:bg-gray-200 hover:text-red-600'
+                            : 'border-gray-800 bg-gray-950/90 text-[#cf222e] hover:bg-gray-900'
                         }`}
                       >
                         <Trash2 className="h-4 w-4" />
@@ -134,7 +134,7 @@ export default function InferenceGallery({
                       </span>
                     )}
                     {item.use_lora ? (
-                      <span className="rounded-full border border-fuchsia-400/30 bg-fuchsia-400/12 px-2.5 py-1 text-[9px] font-medium uppercase tracking-[0.22em] text-fuchsia-100 backdrop-blur-sm">
+                      <span className="rounded-full border border-gray-700 bg-gray-900/80 px-2.5 py-1 text-[9px] font-medium uppercase tracking-[0.22em] text-gray-300 backdrop-blur-sm dark:border-fuchsia-400/30 dark:bg-fuchsia-400/12 dark:text-fuchsia-100">
                         LoRA
                       </span>
                     ) : null}
@@ -151,7 +151,7 @@ export default function InferenceGallery({
                       className={`rounded-full border p-2 backdrop-blur-sm transition ${
                         isDark
                           ? 'border-white/10 bg-black/28 text-white/70 hover:border-white/18 hover:text-white'
-                          : 'border-gray-400 bg-gray-100/88 text-gray-600 hover:border-gray-500 hover:bg-gray-200 hover:text-gray-950'
+                          : 'border-gray-800 bg-gray-950/88 text-gray-500 hover:bg-gray-900 hover:text-gray-100'
                       }`}
                     >
                       <Search className="h-4 w-4" />
@@ -169,10 +169,10 @@ export default function InferenceGallery({
                           isFavorite
                             ? isDark
                               ? 'border-rose-300/28 bg-rose-300/16 text-rose-100'
-                              : 'border-gray-400 bg-gray-100/88 text-rose-500'
+                              : 'border-gray-800 bg-gray-950/88 text-[#cf222e]'
                             : isDark
                               ? 'border-white/10 bg-black/28 text-white/70 hover:border-white/18 hover:text-white'
-                              : 'border-gray-400 bg-gray-100/88 text-gray-600 hover:border-gray-500 hover:bg-gray-200 hover:text-gray-950'
+                              : 'border-gray-800 bg-gray-950/88 text-gray-500 hover:bg-gray-900 hover:text-gray-100'
                         }`}
                       >
                         <Heart className={`h-4 w-4 ${isFavorite ? 'fill-current' : ''}`} />
@@ -271,7 +271,7 @@ function getModeTone(item: JobResult, isDark: boolean) {
         : 'bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.10),transparent_52%)]',
       modeBadgeClassName: isDark
         ? 'border-fuchsia-400/28 bg-fuchsia-400/12 text-fuchsia-100'
-        : 'border-gray-400 bg-gray-900/82 text-white',
+        : 'border-gray-700 bg-gray-900/88 text-gray-300',
     };
   }
   if (item.served_by === 'service') {
@@ -281,7 +281,7 @@ function getModeTone(item: JobResult, isDark: boolean) {
         : 'bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_50%)]',
       modeBadgeClassName: isDark
         ? 'border-cyan-300/24 bg-cyan-300/12 text-cyan-100'
-        : 'border-gray-400 bg-gray-900/82 text-white',
+        : 'border-gray-700 bg-gray-900/88 text-gray-300',
     };
   }
   return {
@@ -290,7 +290,7 @@ function getModeTone(item: JobResult, isDark: boolean) {
       : 'bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_52%)]',
     modeBadgeClassName: isDark
       ? 'border-amber-300/24 bg-amber-300/12 text-amber-100'
-      : 'border-gray-400 bg-gray-900/82 text-white',
+      : 'border-gray-700 bg-gray-900/88 text-gray-300',
   };
 }
 

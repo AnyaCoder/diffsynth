@@ -2,22 +2,23 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Light mode (default root values, overridden by .dark) */
+/* Light mode follows GitHub's neutral light palette. */
 :root {
-  --background: #fafafa;
-  --foreground: #171717;
+  --background: #ffffff;
+  --foreground: #24292f;
 
-  /* Gray scale: inverted for light mode so bg-gray-950 = light bg, text-gray-100 = dark text */
-  --gray-950: 235 235 235;
-  --gray-900: 215 215 215;
-  --gray-800: 195 195 195;
-  --gray-700: 175 175 175;
-  --gray-600: 163 163 163;
-  --gray-500: 115 115 115;
-  --gray-400: 82 82 82;
-  --gray-300: 64 64 64;
-  --gray-200: 38 38 38;
-  --gray-100: 23 23 23;
+  /* Existing UI classes are authored dark-first. In light mode these tokens
+     map them onto GitHub-style canvas, subtle canvas, border, muted, and fg. */
+  --gray-950: 255 255 255; /* canvas default */
+  --gray-900: 246 248 250; /* canvas subtle */
+  --gray-800: 208 215 222; /* border default */
+  --gray-700: 175 184 193; /* border muted */
+  --gray-600: 139 148 158; /* neutral muted */
+  --gray-500: 87 96 106;   /* fg muted */
+  --gray-400: 87 96 106;
+  --gray-300: 36 41 47;    /* fg default */
+  --gray-200: 36 41 47;
+  --gray-100: 36 41 47;
 }
 
 /* Dark mode */

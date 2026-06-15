@@ -29,7 +29,12 @@ export default function ConfirmDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4 backdrop-blur-md">
-      <div className="w-full max-w-md rounded-2xl border border-gray-800 bg-gray-900 p-6 shadow-2xl">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        className="w-full max-w-md rounded-2xl border border-gray-800 bg-gray-900 p-6 shadow-2xl"
+      >
         <h2 className="text-xl font-semibold text-gray-100">{title}</h2>
         <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-gray-400">{message}</p>
         <div className="mt-6 flex justify-end gap-3">

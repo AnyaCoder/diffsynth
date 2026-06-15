@@ -15,7 +15,7 @@ const MobileMenuButton: React.FC = () => {
   return (
     <button
       onClick={() => setIsMobileOpen(true)}
-      className="md:hidden flex items-center ml-2 mr-1 px-1 py-1 rounded-md hover:bg-gray-800"
+      className="ml-2 mr-1 flex items-center rounded-md px-1 py-1 hover:bg-gray-800 md:hidden"
       aria-label={tCommon('openMenu')}
     >
       <ThemeLogo />
@@ -27,7 +27,7 @@ export const TopBar: React.FC<Props> = ({ children, className }) => {
   return (
     <div
       className={classNames(
-        'absolute top-0 left-0 w-full h-12 bg-gray-900 shadow-sm z-10 flex items-center px-2 overflow-x-auto whitespace-nowrap',
+        'absolute left-0 top-0 z-10 flex h-12 w-full items-center overflow-x-auto whitespace-nowrap border-b border-gray-800 bg-gray-900 px-2 shadow-sm',
         className,
       )}
     >
@@ -39,7 +39,7 @@ export const TopBar: React.FC<Props> = ({ children, className }) => {
 
 export const MainContent: React.FC<Props> = ({ children, className }) => {
   return (
-    <div className={classNames('pt-14 px-2 sm:px-4 absolute top-0 left-0 w-full h-full overflow-auto', className)}>
+    <div className={classNames('absolute left-0 top-0 h-full w-full overflow-auto px-2 pt-14 sm:px-4', className)}>
       {children ? children : null}
     </div>
   );

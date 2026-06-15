@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
 import './globals.css';
 import Sidebar from '@/components/Sidebar';
 import ToastProvider from '@/components/ToastProvider';
@@ -12,8 +11,6 @@ import { getCurrentLocale } from '@/i18n/server';
 import { loadMessages } from '@/i18n/loadMessages';
 
 export const dynamic = 'force-dynamic';
-
-const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
   title: 'DiffSynth Qwen Control',
@@ -39,7 +36,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           }}
         />
       </head>
-      <body className={inter.className}>
+      <body>
         <I18nProvider locale={locale} messages={messages}>
           <ThemeProvider>
             <AuthWrapper authRequired={authRequired}>

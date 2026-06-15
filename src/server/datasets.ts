@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { DatasetItem } from '../types';
 import { getDatasetsRoot } from './settings';
-import { ensurePathExists, sanitizeDatasetName, sanitizeFileName } from './security';
+import { ensurePathExists, ensurePathInsideRoots, sanitizeDatasetName, sanitizeFileName } from './security';
 
 const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.webp']);
 
@@ -45,6 +45,26 @@ export async function deleteDataset(datasetName: string) {
   if (fs.existsSync(datasetPath)) {
     fs.rmSync(datasetPath, { recursive: true, force: true });
   }
+}
+
+export async function deleteDatasetItem(datasetName: string, relativePathInput: string) {
+  const datasetPath = await getDatasetPath(datasetName);
+  ensurePathExists(datasetPath);
+  const relativePath = sanitizeRelativeDatasetPath(relativePathInput);
+  const imagePath = ensurePathInsideRoots(path.join(datasetPath, relativePath), [datasetPath]);
+  const ext = path.extname(imagePath).toLowerCase();
+  if (!IMAGE_EXTENSIONS.has(ext)) {
+    throw new Error('Only image files can be deleted from a dataset');
+  }
+  if (!fs.existsSync(imagePath)) {
+    throw new Error('Dataset image not found');
+  }
+  fs.rmSync(imagePath, { force: true });
+  const captionPath = ensurePathInsideRoots(captionPathForImage(imagePath), [datasetPath]);
+  if (fs.existsSync(captionPath)) {
+    fs.rmSync(captionPath, { force: true });
+  }
+  await rebuildMetadataCsv(datasetName);
 }
 
 export async function listDatasetItems(datasetName: string): Promise<DatasetItem[]> {

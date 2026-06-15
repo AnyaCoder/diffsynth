@@ -15,7 +15,7 @@ common:
   datasets: 数据集
   dashboard: 总览
   inference: 推理
-  singleInference: 单次推理
+  singleInference: 文生图推理
   modelServices: 模型服务
   jobList: 任务列表
   newTrain: 新建训练
@@ -104,7 +104,7 @@ jobDetail:
   stop: 停止
   archive: 归档
   unarchive: 取消归档
-  useInInference: 用于单次推理
+  useInInference: 用于文生图推理
   overview: 概览
   archived: 已归档
   yes: 是
@@ -159,6 +159,7 @@ datasetDetail:
   uploadImages: 上传图片
   upload: 上传
   chooseFolder: 选择文件夹
+  chooseFiles: 选择文件
   uploadFolderHint: 支持直接拖拽整个文件夹，自动导入其中所有图片和同名 .txt 标注文件。
   uploadFolderSubhint: 会保留文件夹内的相对路径，并按同名图片与 .txt 自动配对。
   noFolderSelected: 还没有选择文件夹或文件。
@@ -167,6 +168,17 @@ datasetDetail:
   pending: 待标注
   captionPlaceholder: 标注提示词
   noImages: 还没有图片。
+  previewImage: 放大图片
+  deleteImage: 删除图片
+  deleteImageTitle: 删除图片
+  deleteImageMessage: "删除“{name}”？\n\n这会同时删除图片和同名 .txt 标注文件。"
+  deletingImage: 删除中...
+  maxItemsPerRow: 一行最多
+  itemsPerPage: 每页最多
+  pagination: 数据集分页
+  previousPage: 上一页
+  nextPage: 下一页
+  pageNumber: 第 {page} 页
 trainForm:
   title: 新建训练任务
   formTitle: Qwen LoRA 表单
@@ -190,13 +202,25 @@ trainForm:
   createTrainJob: 创建训练任务
   select: 选择
 inferencePage:
-  title: 单次推理
-  formTitle: 单次推理
+  title: 文生图推理
+  formTitle: 文生图推理
+  txt2imgTab: 文生图
+  generationSettings: 生成参数
+  modelSetup: 模型与服务
+  extraSettings: 附加功能
+  outputPanelTitle: 图片生成
+  outputEmpty: 生成结果会显示在这里。
+  outputPendingTitle: 正在生成图片
+  outputPendingQueued: 推理任务已排队，等待模型返回结果。
+  outputNoImageTitle: 没有生成图片
+  outputNoImage: 任务已结束，但没有找到生成结果。
+  outputMetadata: 生成信息
+  openImage: 打开图片
+  selectOutput: 选择第 {index} 张生成图
+  servedBy: 执行方式
+  createdAt: 生成时间
   recentRequests: 最近请求
-  galleryTitle: 灵感画廊
-  galleryHint: 最近推理结果会以瀑布流方式显示在这里。
-  refreshGallery: 刷新画廊
-  noGalleryResults: 还没有推理结果。
+  refreshOutput: 刷新结果
   jobName: 任务名称
   prompt: 提示词
   seed: 种子
@@ -212,17 +236,35 @@ inferencePage:
   serviceModeAuto: 自动匹配
   serviceModeManual: 指定服务
   serviceModeAutoHelp: 自动复用任意与当前 GPU 和模型配置匹配的运行中服务。
-  serviceModeManualHelp: 将本次单次推理限定到某一个与当前 GPU 和模型配置匹配的运行中服务。
+  serviceModeManualHelp: 将本次文生图推理限定到某一个与当前 GPU 和模型配置匹配的运行中服务。
   noMatchingService: 当前 GPU 和模型配置下没有可匹配的运行中服务。
   checkpointAutoFill: 选择训练任务后会自动带出最新 checkpoint 路径。
   manualCheckpoint: 手动指定 checkpoint
   checkpointPath: Checkpoint 路径
-  serviceReuseHint: 若已有匹配的常驻模型服务，单次推理会优先复用；否则会临时启动模型执行。
-  runInference: 开始推理
+  serviceReuseHint: 若已有匹配的常驻模型服务，文生图推理会优先复用；否则会临时启动模型执行。
+  modelControlHint: 先在顶部加载模型，待状态变为运行中后再生成图片；生成会复用当前 GPU 和模型配置匹配的运行中模型服务。
+  modelRuntime: 模型状态
+  modelNoService: 未创建服务
+  modelNotLoaded: 未加载
+  modelDraft: 未加载
+  modelQueued: 排队中
+  modelStarting: 加载中
+  modelRunning: 运行中
+  modelStopping: 卸载中
+  modelStopped: 已卸载
+  modelError: 错误
+  loadModel: 加载模型
+  unloadModel: 卸载模型
+  loadingModel: 加载中
+  unloadingModel: 卸载中
+  modelRequired: 先加载模型
+  modelRequiredDetail: 当前模型还不是运行中，请先点击加载模型。
+  runInference: 生成
+  submitting: 提交中
+  queued: 推理已排队
   started: 已启动
   noLocalRequests: 还没有本地请求。
 inferenceGallery:
-  eyebrow: 发现流
   untitled: 未命名
   delete: 删除
   cancel: 取消

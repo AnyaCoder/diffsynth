@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/server/prisma';
 import { createJobFromRequest, JobIntakeError } from '@/server/jobIntake';
+import { reconcileStaleStoppingJob, reconcileStaleStoppingJobs } from '@/server/jobLifecycle';
 import { recordAuditEvent } from '@/server/audit';
 import { listRecentInferenceResults } from '@/server/jobs';
 
@@ -13,8 +14,9 @@ export async function GET(request: Request) {
   const limit = Number(searchParams.get('limit') || '18');
   if (id) {
     const job = await prisma.job.findUnique({ where: { id } });
-    return NextResponse.json(job);
+    return NextResponse.json(job ? await reconcileStaleStoppingJob(job) : null);
   }
+  await reconcileStaleStoppingJobs();
   if (recentInferResults) {
     return NextResponse.json({ results: await listRecentInferenceResults(limit) });
   }

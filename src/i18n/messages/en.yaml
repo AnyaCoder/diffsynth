@@ -15,7 +15,7 @@ common:
   datasets: Datasets
   dashboard: Dashboard
   inference: Inference
-  singleInference: One-off Inference
+  singleInference: Text-to-Image
   modelServices: Model Services
   jobList: Job List
   newTrain: New Train
@@ -104,7 +104,7 @@ jobDetail:
   stop: Stop
   archive: Archive
   unarchive: Unarchive
-  useInInference: Use in One-off Inference
+  useInInference: Use in Text-to-Image
   overview: Overview
   archived: Archived
   yes: yes
@@ -159,6 +159,7 @@ datasetDetail:
   uploadImages: Upload Images
   upload: Upload
   chooseFolder: Choose Folder
+  chooseFiles: Choose Files
   uploadFolderHint: Drag a whole folder here to import all images and matching .txt caption files.
   uploadFolderSubhint: Relative paths are preserved, and same-name images and .txt files are paired automatically.
   noFolderSelected: No folder or files selected yet.
@@ -167,6 +168,17 @@ datasetDetail:
   pending: pending
   captionPlaceholder: caption prompt
   noImages: No images yet.
+  previewImage: Preview image
+  deleteImage: Delete image
+  deleteImageTitle: Delete image
+  deleteImageMessage: "Delete \"{name}\"?\n\nThis also deletes the image and its matching .txt caption file."
+  deletingImage: Deleting...
+  maxItemsPerRow: Max per row
+  itemsPerPage: Max per page
+  pagination: Dataset pagination
+  previousPage: Previous page
+  nextPage: Next page
+  pageNumber: Page {page}
 trainForm:
   title: New Train Job
   formTitle: Qwen LoRA Form
@@ -190,13 +202,25 @@ trainForm:
   createTrainJob: Create Train Job
   select: Select
 inferencePage:
-  title: One-off Inference
-  formTitle: One-off Inference
+  title: Text-to-Image Inference
+  formTitle: Text-to-Image Inference
+  txt2imgTab: txt2img
+  generationSettings: Generation Settings
+  modelSetup: Model and Service
+  extraSettings: Extras
+  outputPanelTitle: Image Output
+  outputEmpty: Generated images will appear here.
+  outputPendingTitle: Generating image
+  outputPendingQueued: Inference is queued and waiting for the model result.
+  outputNoImageTitle: No image generated
+  outputNoImage: The task finished, but no generated result was found.
+  outputMetadata: Generation Info
+  openImage: Open image
+  selectOutput: "Select generated image {index}"
+  servedBy: Execution Mode
+  createdAt: Created
   recentRequests: Recent Requests
-  galleryTitle: Inspiration Stream
-  galleryHint: Recent inference outputs flow here as a live gallery.
-  refreshGallery: Refresh gallery
-  noGalleryResults: No inference results yet.
+  refreshOutput: Refresh results
   jobName: Job Name
   prompt: Prompt
   seed: Seed
@@ -212,17 +236,35 @@ inferencePage:
   serviceModeAuto: Auto match
   serviceModeManual: Choose service
   serviceModeAutoHelp: Reuse any running service that matches this GPU and model setup.
-  serviceModeManualHelp: Limit one-off inference to a specific running service that matches this GPU and model setup.
+  serviceModeManualHelp: Limit this text-to-image run to a specific running service that matches this GPU and model setup.
   noMatchingService: No matching running services for the current GPU and model selection.
   checkpointAutoFill: Checkpoint path will auto-fill from the selected training job.
   manualCheckpoint: Manual checkpoint
   checkpointPath: Checkpoint Path
-  serviceReuseHint: One-off inference reuses a matching running model service when available; otherwise it spins up an ephemeral model run.
-  runInference: Run Inference
+  serviceReuseHint: Text-to-image generation reuses a matching running model service when available; otherwise it spins up an ephemeral model run.
+  modelControlHint: Load the model from the top bar first, then generate after the status becomes running. Generation uses the running model service that matches the current GPU and model setup.
+  modelRuntime: Model status
+  modelNoService: No service
+  modelNotLoaded: Not loaded
+  modelDraft: Not loaded
+  modelQueued: Queued
+  modelStarting: Loading
+  modelRunning: Running
+  modelStopping: Unloading
+  modelStopped: Unloaded
+  modelError: Error
+  loadModel: Load model
+  unloadModel: Unload model
+  loadingModel: Loading
+  unloadingModel: Unloading
+  modelRequired: Load model first
+  modelRequiredDetail: The current model is not running yet. Load the model first.
+  runInference: Generate
+  submitting: Submitting
+  queued: Inference queued
   started: Started
   noLocalRequests: No local requests yet.
 inferenceGallery:
-  eyebrow: Discovery feed
   untitled: Untitled
   delete: Delete
   cancel: Cancel

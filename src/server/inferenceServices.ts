@@ -1,4 +1,5 @@
 import fs from 'fs';
+import http from 'http';
 import path from 'path';
 import { spawn } from 'child_process';
 import prisma from './prisma';
@@ -319,16 +320,7 @@ export async function proxyGenerateInferenceService(id: string, payload: unknown
     throw new Error('Service is not running');
   }
 
-  const response = await fetch(`${service.endpoint_url}/generate`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(payload ?? {}),
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error(typeof data?.detail === 'string' ? data.detail : `Service request failed with ${response.status}`);
-  }
-  return data;
+  return postJsonWithTimeout(`${service.endpoint_url}/generate`, payload ?? {}, 30 * 60 * 1000);
 }
 
 export async function findMatchingRunningInferenceService(config: {
@@ -378,6 +370,56 @@ export async function findMatchingRunningInferenceServiceForJobConfig(configJson
 
 export function getInferenceServiceRuntimeRoot(serviceRoot: string) {
   return path.join(path.isAbsolute(serviceRoot) ? serviceRoot : path.resolve(REPO_ROOT, serviceRoot), 'runtime');
+}
+
+function postJsonWithTimeout(urlValue: string, payload: unknown, timeoutMs: number) {
+  return new Promise<any>((resolve, reject) => {
+    const url = new URL(urlValue);
+    const body = JSON.stringify(payload ?? {});
+    const request = http.request(
+      {
+        hostname: url.hostname,
+        port: url.port,
+        path: `${url.pathname}${url.search}`,
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'content-length': Buffer.byteLength(body),
+        },
+        timeout: timeoutMs,
+      },
+      response => {
+        let raw = '';
+        response.setEncoding('utf8');
+        response.on('data', chunk => {
+          raw += chunk;
+        });
+        response.on('end', () => {
+          const data = raw ? safeJsonParse(raw) : {};
+          if (response.statusCode == null || response.statusCode < 200 || response.statusCode >= 300) {
+            reject(new Error(typeof data?.detail === 'string' ? data.detail : `Service request failed with ${response.statusCode}`));
+            return;
+          }
+          resolve(data);
+        });
+      },
+    );
+
+    request.on('timeout', () => {
+      request.destroy(new Error(`Service request timed out after ${Math.round(timeoutMs / 1000)}s`));
+    });
+    request.on('error', reject);
+    request.write(body);
+    request.end();
+  });
+}
+
+function safeJsonParse(value: string) {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return {};
+  }
 }
 
 function spawnInferenceServiceBridge(service: InferenceServiceRuntime, envName: string) {

@@ -42,9 +42,9 @@ export default function Sidebar() {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-xs uppercase tracking-[0.25em] text-gray-500">{tSidebar('diffSynth')}</p>
-            <h1 className="mt-2 text-lg font-semibold text-white">{tSidebar('qwenControl')}</h1>
+            <h1 className="mt-2 text-lg font-semibold text-gray-100">{tSidebar('qwenControl')}</h1>
           </div>
-          <button onClick={() => setIsMobileOpen(false)} className="md:hidden rounded p-1 text-gray-400 hover:bg-gray-800 hover:text-white">
+          <button onClick={() => setIsMobileOpen(false)} className="rounded p-1 text-gray-400 hover:bg-gray-800 hover:text-gray-100 md:hidden">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -58,7 +58,9 @@ export default function Sidebar() {
                 <Link
                   href={item.href}
                   className={`flex items-center rounded-lg px-4 py-3 transition ${
-                    active ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+                    active
+                      ? 'bg-[#0969da] text-white dark:bg-blue-600'
+                      : 'text-gray-300 hover:bg-gray-800 hover:text-gray-100'
                   }`}
                 >
                   <item.icon className="mr-3 h-5 w-5" />
@@ -80,7 +82,9 @@ export default function Sidebar() {
               href="/settings"
               aria-label={tSidebar('openSettings')}
               className={`rounded-lg border p-2 transition ${
-                pathname === '/settings' ? 'border-blue-500 bg-blue-600/10 text-blue-300' : 'border-gray-700 text-gray-300 hover:border-gray-600 hover:text-white'
+                pathname === '/settings'
+                  ? 'border-[#0969da] bg-[#ddf4ff] text-[#0969da] dark:border-blue-500 dark:bg-blue-600/10 dark:text-blue-300'
+                  : 'border-gray-700 text-gray-300 hover:border-gray-600 hover:text-gray-100'
               }`}
             >
               <Settings className="h-4 w-4" />
@@ -100,7 +104,7 @@ export default function Sidebar() {
         onClick={() => setIsMobileOpen(false)}
       />
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-gray-900 transition-transform md:hidden ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r border-gray-800 bg-gray-900 transition-transform md:hidden ${
           isMobileOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >

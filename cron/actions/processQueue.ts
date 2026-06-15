@@ -3,8 +3,11 @@ import { Job, Queue } from '@prisma/client';
 import startJob from './startJob';
 import { processQueuedInferenceServices } from '../../src/server/inferenceServices';
 import { isGpuBusy } from '../../src/server/process';
+import { reconcileStaleStoppingJobs } from '../../src/server/jobLifecycle';
 
 export default async function processQueue() {
+  await reconcileStaleStoppingJobs();
+
   const queues: Queue[] = await prisma.queue.findMany({ orderBy: { id: 'asc' } });
   const activeServices = await prisma.inferenceService.findMany({
     where: {

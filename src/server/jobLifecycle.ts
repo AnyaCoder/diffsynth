@@ -6,7 +6,7 @@ import prisma from './prisma';
 import { DB_PATH, PYTHON_ROOT, REPO_ROOT, UI_ROOT } from './paths';
 import { getJobRunDirectory, prepareJobRunDirectory, readPidFile } from './jobRunDirectory';
 import { resolveCondaPath } from './pythonPath';
-import { stopPidTree } from './process';
+import { isPidAlive, stopPidTree } from './process';
 import { proxyGenerateInferenceService, findMatchingRunningInferenceService } from './inferenceServices';
 import { readInferConfigFromJson } from '../domain/jobSpec';
 
@@ -122,6 +122,21 @@ export async function requestStopJob(jobId: string) {
   const job = await prisma.job.findUnique({ where: { id: jobId } });
   if (!job) return null;
 
+  if (!['queued', 'running', 'stopping'].includes(job.status)) {
+    if (job.stop_requested) {
+      return prisma.job.update({
+        where: { id: jobId },
+        data: { stop_requested: false, pid: null },
+      });
+    }
+    return job;
+  }
+
+  const livePids = liveJobPids(job);
+  if (livePids.length === 0) {
+    return markJobStopped(job, stoppedInfo(job));
+  }
+
   await prisma.job.update({
     where: { id: jobId },
     data: {
@@ -131,15 +146,54 @@ export async function requestStopJob(jobId: string) {
     },
   });
 
-  const runDir = getJobRunDirectory(job.artifact_root);
-  const trainChildPid = job.job_type === 'train' ? readPidFile(runDir.trainChildPidPath) : null;
-  const effectivePid = trainChildPid ?? job.pid ?? null;
-
-  if (effectivePid) {
-    stopPidTree(effectivePid);
+  for (const pid of livePids) {
+    stopPidTree(pid);
   }
 
   return job;
+}
+
+export async function reconcileStaleStoppingJob(job: Job) {
+  if (job.status !== 'stopping') return job;
+  if (liveJobPids(job).length > 0) return job;
+  return markJobStopped(job, stoppedInfo(job));
+}
+
+export async function reconcileStaleStoppingJobs() {
+  const jobs = await prisma.job.findMany({ where: { status: 'stopping' } });
+  for (const job of jobs) {
+    await reconcileStaleStoppingJob(job);
+  }
+}
+
+function jobPidCandidates(job: Pick<Job, 'artifact_root' | 'job_type' | 'pid'>) {
+  const runDir = getJobRunDirectory(job.artifact_root);
+  return [
+    job.job_type === 'train' ? readPidFile(runDir.trainChildPidPath) : null,
+    job.pid ?? null,
+    readPidFile(runDir.bridgePidPath),
+  ].filter((pid): pid is number => Boolean(pid));
+}
+
+function liveJobPids(job: Pick<Job, 'artifact_root' | 'job_type' | 'pid'>) {
+  return Array.from(new Set(jobPidCandidates(job))).filter(isPidAlive);
+}
+
+function stoppedInfo(job: Pick<Job, 'job_type'>) {
+  return job.job_type === 'infer' ? 'Inference stopped' : 'Training stopped';
+}
+
+function markJobStopped(job: Job, info: string) {
+  return prisma.job.update({
+    where: { id: job.id },
+    data: {
+      status: 'stopped',
+      stop_requested: false,
+      info,
+      pid: null,
+      finished_at: job.finished_at ?? new Date(),
+    },
+  });
 }
 
 function spawnBridgeWithEnv(job: Job, envName: string) {

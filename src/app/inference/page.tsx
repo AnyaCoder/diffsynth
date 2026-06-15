@@ -1,20 +1,25 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import InferenceResultFeed, { InferenceHistoryItem } from '@/components/InferenceResultFeed';
+import { Loader2, Play, Power, PowerOff, RefreshCw, SlidersHorizontal, Wand2 } from 'lucide-react';
+import InferenceOutputPanel, { InferenceHistoryItem } from '@/components/InferenceOutputPanel';
 import ModelSourceSelect from '@/components/ModelSourceSelect';
-import ResizableSplitPanel from '@/components/ResizableSplitPanel';
 import { useToast } from '@/components/ToastProvider';
 import { MainContent, TopBar } from '@/components/layout';
-import { buildModelSourceConfig, matchesInferenceServiceForModelSource } from '@/domain/modelSource';
+import { buildModelSourceConfig, DEFAULT_INFERENCE_BASE_MODEL } from '@/domain/modelSource';
 import useInferenceServices from '@/hooks/useInferenceServices';
 import useGPUInfo from '@/hooks/useGPUInfo';
+import useJob from '@/hooks/useJob';
+import useJobResults from '@/hooks/useJobResults';
 import useJobsList from '@/hooks/useJobsList';
 import useModelSourceSelection from '@/hooks/useModelSourceSelection';
 import useRecentInferenceResults from '@/hooks/useRecentInferenceResults';
 import { apiClient } from '@/utils/api';
-import { InferenceServiceSummary, JobResult } from '@/types';
+import { InferenceServiceSummary, JobResult, JobSummary } from '@/types';
+
+const GPU_IDS_STORAGE_KEY = 'qwen.inference.gpuIds';
 
 export default function InferencePage() {
   const t = useTranslations('inferencePage');
@@ -22,20 +27,24 @@ export default function InferencePage() {
   const { pushToast } = useToast();
   const { gpuList } = useGPUInfo(null, 5000);
   const { jobs } = useJobsList({ jobType: 'train', reloadInterval: 5000 });
-  const { services } = useInferenceServices(5000);
+  const { services, refreshServices } = useInferenceServices(2500);
   const { results: recentResults, refreshResults: refreshRecentResults } = useRecentInferenceResults(16, 5000);
   const [name, setName] = useState(`infer_${Date.now()}`);
   const [prompt, setPrompt] = useState('精致肖像，水下少女，蓝裙飘逸，发丝轻扬，光影透澈，气泡环绕，面容恬静，细节精致，梦幻唯美。');
   const [seed, setSeed] = useState(0);
   const [steps, setSteps] = useState(40);
   const [gpuIds, setGpuIds] = useState('');
+  const [gpuIdsRestored, setGpuIdsRestored] = useState(false);
+  const [userChangedGpuIds, setUserChangedGpuIds] = useState(false);
   const [outputPrefix, setOutputPrefix] = useState('image');
   const [history, setHistory] = useState<InferenceHistoryItem[]>([]);
   const [favoriteImagePaths, setFavoriteImagePaths] = useState<string[]>([]);
   const [isSubmittingReplay, setIsSubmittingReplay] = useState(false);
   const [isSubmittingInference, setIsSubmittingInference] = useState(false);
-  const [serviceStrategy, setServiceStrategy] = useState<'auto' | 'manual'>('auto');
-  const [selectedServiceId, setSelectedServiceId] = useState('');
+  const [modelAction, setModelAction] = useState<'load' | 'unload' | null>(null);
+  const [activeInference, setActiveInference] = useState<Pick<JobSummary, 'id' | 'name'> | null>(null);
+  const [sessionResults, setSessionResults] = useState<JobResult[]>([]);
+  const [focusedResultPath, setFocusedResultPath] = useState<string | null>(null);
 
   const {
     checkpointPath,
@@ -49,21 +58,77 @@ export default function InferencePage() {
     baseLabel: t('baseModelOption'),
   });
 
-  const matchingServices = useMemo(
-    () =>
-      services.filter(service =>
-        matchesInferenceServiceForModelSource(service, {
-          gpuIds,
-          selectedModelSource,
-          checkpointPath,
-        })
-      ),
-    [services, gpuIds, selectedModelSource, checkpointPath]
+  const modelSourceConfig = useMemo(
+    () => buildModelSourceConfig(selectedModelSource, checkpointPath),
+    [selectedModelSource, checkpointPath]
+  );
+  const modelShapeServices = useMemo(
+    () => services.filter(service => serviceMatchesModelShape(service, { selectedModelSource, checkpointPath })),
+    [services, selectedModelSource, checkpointPath]
+  );
+  const configuredModelServices = useMemo(
+    () => modelShapeServices.filter(service => service.gpu_ids.trim() === gpuIds.trim()),
+    [modelShapeServices, gpuIds]
+  );
+  const runningModelService = configuredModelServices.find(service => service.status === 'running') ?? null;
+  const controlledModelService =
+    runningModelService ??
+    configuredModelServices.find(service => ['queued', 'starting', 'stopping'].includes(service.status)) ??
+    configuredModelServices[0] ??
+    null;
+  const modelStatus = controlledModelService?.status || 'not_loaded';
+  const modelIsRunning = modelStatus === 'running';
+  const modelIsTransitioning = ['queued', 'starting', 'stopping'].includes(modelStatus);
+  const activeInferenceId = activeInference?.id || '';
+  const { job: activeInferenceJob } = useJob(activeInferenceId, activeInference ? 1500 : null);
+  const activeJobIsOpen =
+    Boolean(activeInference) && !['completed', 'error', 'stopped'].includes(activeInferenceJob?.status || '');
+  const { results: activeJobResults } = useJobResults(activeInferenceId, activeInference && (activeJobIsOpen || !activeInferenceJob) ? 1500 : null);
+  const outputResults = useMemo(
+    () => mergeResults(activeJobResults, sessionResults, recentResults),
+    [activeJobResults, sessionResults, recentResults],
   );
 
   useEffect(() => {
-    if (!gpuIds && gpuList[0]) setGpuIds(String(gpuList[0].index));
-  }, [gpuList, gpuIds]);
+    if (!activeJobResults.length) return;
+    const primaryResult = activeJobResults[0];
+    setSessionResults(prev => mergeResults(activeJobResults, prev));
+    setFocusedResultPath(primaryResult.image_path);
+    void refreshRecentResults();
+  }, [activeJobResults]);
+
+  useEffect(() => {
+    if (!activeInference || activeJobIsOpen || !activeJobResults.length) return;
+    const timeout = window.setTimeout(() => setActiveInference(null), 3500);
+    return () => window.clearTimeout(timeout);
+  }, [activeInference, activeJobIsOpen, activeJobResults.length]);
+
+  useEffect(() => {
+    const storedGpuIds = window.localStorage.getItem(GPU_IDS_STORAGE_KEY);
+    if (storedGpuIds) {
+      setGpuIds(storedGpuIds);
+    }
+    setGpuIdsRestored(true);
+  }, []);
+
+  useEffect(() => {
+    if (!gpuIdsRestored || userChangedGpuIds) return;
+    const loadedService =
+      modelShapeServices.find(service => service.status === 'running') ??
+      modelShapeServices.find(service => ['queued', 'starting', 'stopping'].includes(service.status));
+    if (loadedService && loadedService.gpu_ids.trim() !== gpuIds.trim()) {
+      setGpuIds(loadedService.gpu_ids);
+      return;
+    }
+    if (!gpuIds && gpuList[0]) {
+      setGpuIds(String(gpuList[0].index));
+    }
+  }, [gpuIdsRestored, gpuIds, gpuList, modelShapeServices, userChangedGpuIds]);
+
+  useEffect(() => {
+    if (!gpuIdsRestored || !gpuIds.trim()) return;
+    window.localStorage.setItem(GPU_IDS_STORAGE_KEY, gpuIds);
+  }, [gpuIds, gpuIdsRestored]);
 
   useEffect(() => {
     const trainJobId = new URLSearchParams(window.location.search).get('trainJobId');
@@ -72,16 +137,47 @@ export default function InferencePage() {
     }
   }, []);
 
-  useEffect(() => {
-    if (serviceStrategy !== 'manual') return;
-    if (selectedServiceId && matchingServices.some(service => service.id === selectedServiceId)) {
-      return;
+  const loadModel = async () => {
+    if (modelAction || modelIsRunning || modelIsTransitioning) return;
+    setModelAction('load');
+    try {
+      let service = controlledModelService;
+      if (!service) {
+        const response = await apiClient.post('/api/services', {
+          name: `infer_service_${Date.now()}`,
+          config: {
+            gpu_ids: gpuIds,
+            ...modelSourceConfig,
+          },
+        });
+        service = response.data;
+      }
+      await apiClient.post(`/api/services/${service.id}/start`);
+      pushToast({ title: t('loadModel'), description: service.name, tone: 'info' });
+      await refreshServices();
+    } finally {
+      setModelAction(null);
     }
-    setSelectedServiceId(matchingServices[0]?.id || '');
-  }, [matchingServices, selectedServiceId, serviceStrategy]);
+  };
+
+  const unloadModel = async () => {
+    if (modelAction || !controlledModelService || ['not_loaded', 'draft', 'stopped', 'stopping', 'error'].includes(modelStatus)) return;
+    setModelAction('unload');
+    try {
+      await apiClient.post(`/api/services/${controlledModelService.id}/stop`);
+      pushToast({ title: t('unloadModel'), description: controlledModelService.name, tone: 'warning' });
+      await refreshServices();
+    } finally {
+      setModelAction(null);
+    }
+  };
 
   const runInference = async () => {
     if (isSubmittingInference) return;
+    if (!runningModelService) {
+      pushToast({ title: t('modelRequired'), description: t('modelRequiredDetail'), tone: 'warning' });
+      return;
+    }
     setIsSubmittingInference(true);
     try {
       const response = await apiClient.post('/api/jobs', {
@@ -93,15 +189,20 @@ export default function InferencePage() {
           num_inference_steps: steps,
           output_prefix: outputPrefix,
           gpu_ids: gpuIds,
-          ...buildModelSourceConfig(selectedModelSource, checkpointPath),
-          preferred_service_id: serviceStrategy === 'manual' ? selectedServiceId || null : null,
+          ...modelSourceConfig,
+          preferred_service_id: runningModelService.id,
         },
       });
       const created = response.data;
+      setActiveInference({ id: created.id, name: created.name });
+      setFocusedResultPath(null);
       await apiClient.post(`/api/jobs/${created.id}/start`);
-      setHistory(prev => [{ id: created.id, name: created.name, info: t('started') }, ...prev]);
-      pushToast({ title: t('runInference'), description: created.name, tone: 'info' });
+      setHistory(prev => [{ id: created.id, name: created.name, info: t('queued') }, ...prev]);
+      pushToast({ title: t('queued'), description: created.name, tone: 'info' });
       refreshRecentResults();
+    } catch (error) {
+      setActiveInference(null);
+      throw error;
     } finally {
       setIsSubmittingInference(false);
     }
@@ -123,6 +224,10 @@ export default function InferencePage() {
     if (isSubmittingReplay) {
       return;
     }
+    if (!runningModelService) {
+      pushToast({ title: t('modelRequired'), description: t('modelRequiredDetail'), tone: 'warning' });
+      return;
+    }
     setIsSubmittingReplay(true);
     try {
       const replayName = `infer_${Date.now()}`;
@@ -136,13 +241,15 @@ export default function InferencePage() {
           output_prefix: outputPrefix,
           gpu_ids: item.gpu_ids || gpuIds,
           checkpoint_path: item.checkpoint_path,
-          base_model: item.base_model || 'Qwen/Qwen-Image-2512',
+          base_model: item.base_model || DEFAULT_INFERENCE_BASE_MODEL,
           use_lora: item.use_lora,
           source_train_job_id: item.source_train_job_id ?? null,
-          preferred_service_id: item.service_id ?? null,
+          preferred_service_id: runningModelService.id,
         },
       });
       const created = response.data;
+      setActiveInference({ id: created.id, name: created.name });
+      setFocusedResultPath(null);
       await apiClient.post(`/api/jobs/${created.id}/start`);
       setHistory(prev => [{ id: created.id, name: created.name, info: tGallery('rerunQueued') }, ...prev]);
       pushToast({ title: tGallery('rerunToastTitle'), description: created.name, tone: 'success' });
@@ -164,6 +271,10 @@ export default function InferencePage() {
     if (!item.job_id) return;
     await apiClient.post(`/api/jobs/${item.job_id}/delete`);
     setHistory(prev => prev.filter(entry => entry.id !== item.job_id));
+    setSessionResults(prev => prev.filter(result => result.job_id !== item.job_id));
+    if (focusedResultPath === item.image_path) {
+      setFocusedResultPath(null);
+    }
     refreshRecentResults();
   };
 
@@ -172,24 +283,10 @@ export default function InferencePage() {
       <TopBar>
         <h1 className="text-base sm:text-lg">{t('title')}</h1>
       </TopBar>
-      <MainContent>
-        <ResizableSplitPanel
-          defaultLeftWidth={760}
-          minLeftWidth={620}
-          maxLeftWidth={940}
-          rightMinWidthClassName="xl:min-w-[360px]"
-          left={
-            <div data-panel-role="infer-left" className="rounded-xl border border-gray-800 bg-gray-900 p-5 xl:flex-1">
-          <h2 className="text-lg font-semibold">{t('formTitle')}</h2>
-          <div className="mt-5 grid grid-cols-1 gap-4">
-            <Field label={t('jobName')} value={name} onChange={setName} />
-            <Field label={t('prompt')} value={prompt} onChange={setPrompt} textarea />
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-              <NumberField label={t('seed')} value={seed} onChange={setSeed} />
-              <NumberField label={t('steps')} value={steps} onChange={setSteps} />
-              <Field label={t('gpuId')} value={gpuIds} onChange={setGpuIds} />
-            </div>
-            <Field label={t('outputPrefix')} value={outputPrefix} onChange={setOutputPrefix} />
+      <MainContent className="pb-6">
+        <div className="mx-auto max-w-[1680px] space-y-3">
+          <section data-layout-area="quick-settings" className="rounded-lg border border-gray-800 bg-gray-900 p-3">
+            <div className="grid gap-3 xl:grid-cols-[minmax(240px,0.9fr)_minmax(280px,1.25fr)_minmax(96px,0.32fr)_minmax(170px,auto)_auto_auto_auto] xl:items-end">
               <ModelSourceSelect
                 label={t('modelSource')}
                 options={modelSourceOptions}
@@ -197,140 +294,255 @@ export default function InferencePage() {
                 onChange={selectModelSource}
                 kindLabels={{ base: t('baseModelTag'), lora: t('loraTag') }}
               />
-            <div className="rounded-lg border border-cyan-900/60 bg-cyan-950/20 px-4 py-3 text-sm text-cyan-100">
-              {t('serviceReuseHint')}
+              <Field label={t('checkpointPath')} value={checkpointPath} onChange={setCheckpointPath} compact />
+              <Field
+                label={t('gpuId')}
+                value={gpuIds}
+                onChange={value => {
+                  setUserChangedGpuIds(true);
+                  setGpuIds(value);
+                }}
+                compact
+              />
+              <ModelStatusIndicator status={modelStatus} service={controlledModelService} busy={Boolean(modelAction) || modelIsTransitioning} t={t} />
+              <button
+                type="button"
+                onClick={() => void loadModel()}
+                disabled={Boolean(modelAction) || modelIsRunning || modelIsTransitioning || !gpuIds.trim()}
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-gray-800 bg-[#0969da] px-3 text-sm font-medium text-white transition hover:bg-[#0550ae] disabled:cursor-not-allowed disabled:border-gray-800 disabled:bg-gray-950 disabled:text-gray-500 dark:bg-blue-600 dark:hover:bg-blue-500 dark:disabled:bg-gray-950"
+              >
+                {modelAction === 'load' || ['queued', 'starting'].includes(modelStatus) ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Power className="h-4 w-4" />
+                )}
+                {modelAction === 'load' || ['queued', 'starting'].includes(modelStatus) ? t('loadingModel') : t('loadModel')}
+              </button>
+              <button
+                type="button"
+                onClick={() => void unloadModel()}
+                disabled={Boolean(modelAction) || !controlledModelService || ['not_loaded', 'draft', 'stopped', 'stopping', 'error'].includes(modelStatus)}
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-gray-800 bg-gray-950 px-3 text-sm font-medium text-gray-500 transition hover:border-gray-700 hover:bg-gray-900 hover:text-gray-300 disabled:cursor-not-allowed disabled:text-gray-600"
+              >
+                {modelAction === 'unload' || modelStatus === 'stopping' ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <PowerOff className="h-4 w-4" />
+                )}
+                {modelAction === 'unload' || modelStatus === 'stopping' ? t('unloadingModel') : t('unloadModel')}
+              </button>
+              <button
+                type="button"
+                onClick={refreshRecentResults}
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-gray-800 bg-gray-950 px-3 text-sm font-medium text-gray-500 transition hover:border-gray-700 hover:bg-gray-900 hover:text-gray-300"
+              >
+                <RefreshCw className="h-4 w-4" />
+                {t('refreshOutput')}
+              </button>
             </div>
-            <ServiceReusePanel
-              strategy={serviceStrategy}
-              onChangeStrategy={setServiceStrategy}
-              services={matchingServices}
-              selectedServiceId={selectedServiceId}
-              onSelectService={setSelectedServiceId}
-              t={t}
-            />
-            {selectedModelSource.kind === 'lora' ? (
-              <div className="rounded-lg border border-amber-900/70 bg-amber-950/30 px-4 py-3 text-sm text-amber-200">
-                {t('checkpointAutoFill')}
-              </div>
-            ) : null}
-            <Field label={t('checkpointPath')} value={checkpointPath} onChange={setCheckpointPath} />
-            <button
-              onClick={runInference}
-              disabled={isSubmittingInference}
-              className="rounded-lg bg-blue-600 px-5 py-3 font-medium text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isSubmittingInference ? t('started') : t('runInference')}
-            </button>
-          </div>
-          </div>
-          }
-          right={
-            <InferenceResultFeed
-              results={recentResults}
+          </section>
+
+          <section data-layout-area="prompt" className="rounded-lg border border-gray-800 bg-gray-900 p-3">
+            <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_240px]">
+              <PromptField label={t('prompt')} value={prompt} onChange={setPrompt} />
+              <button
+                type="button"
+                onClick={runInference}
+                disabled={isSubmittingInference || !modelIsRunning}
+                className="flex min-h-24 w-full items-center justify-center gap-3 rounded-md bg-[#0969da] px-6 py-5 text-base font-semibold text-white shadow-sm transition hover:bg-[#0550ae] disabled:cursor-not-allowed disabled:bg-gray-800 disabled:text-gray-500 dark:bg-blue-600 dark:hover:bg-blue-500 dark:disabled:bg-blue-900/40 dark:disabled:text-blue-200/60"
+              >
+                {isSubmittingInference ? (
+                  <>
+                    <RefreshCw className="h-5 w-5 animate-spin" />
+                    {t('submitting')}
+                  </>
+                ) : (
+                  <>
+                    <Play className="h-5 w-5 fill-current" />
+                    {modelIsRunning ? t('runInference') : t('modelRequired')}
+                  </>
+                )}
+              </button>
+            </div>
+          </section>
+
+          <div data-layout-area="txt2img-workspace" className="grid items-start gap-4 xl:grid-cols-[minmax(420px,0.96fr)_minmax(460px,1.04fr)]">
+            <div data-panel-role="infer-left" className="min-w-0 space-y-4">
+              <section data-layout-area="generation-settings" className="rounded-lg border border-gray-800 bg-gray-900 p-4">
+                <SectionTitle icon={<SlidersHorizontal className="h-4 w-4" />} title={t('generationSettings')} />
+                <div className="mt-4 grid gap-4 md:grid-cols-2">
+                  <RangeNumberField label={t('steps')} value={steps} min={1} max={80} onChange={setSteps} />
+                  <NumberField label={t('seed')} value={seed} onChange={setSeed} />
+                  <Field label={t('outputPrefix')} value={outputPrefix} onChange={setOutputPrefix} />
+                  <Field label={t('jobName')} value={name} onChange={setName} className="md:col-span-2" />
+                </div>
+              </section>
+
+              <section data-layout-area="extra-settings" className="rounded-lg border border-gray-800 bg-gray-900 p-4">
+                <SectionTitle icon={<Wand2 className="h-4 w-4" />} title={t('extraSettings')} />
+                <div className="mt-4 space-y-4">
+                  <div className="rounded-lg border border-gray-800 bg-gray-900 px-4 py-3 text-sm text-gray-500 dark:border-cyan-900/60 dark:bg-cyan-950/20 dark:text-cyan-100">
+                    {t('modelControlHint')}
+                  </div>
+                  {selectedModelSource.kind === 'lora' ? (
+                    <div className="rounded-lg border border-gray-800 bg-gray-900 px-4 py-3 text-sm text-gray-500 dark:border-amber-900/70 dark:bg-amber-950/30 dark:text-amber-200">
+                      {t('checkpointAutoFill')}
+                    </div>
+                  ) : null}
+                </div>
+              </section>
+            </div>
+
+            <InferenceOutputPanel
+              results={outputResults}
               history={history}
               favoriteImagePaths={favoriteImagePaths}
+              isSubmittingReplay={isSubmittingReplay}
+              activeRequest={
+                activeInference
+                  ? {
+                      id: activeInference.id,
+                      name: activeInference.name,
+                      status: activeInferenceJob?.status,
+                      info: activeInferenceJob?.info,
+                    }
+                  : null
+              }
+              activeHasResult={activeJobResults.length > 0}
+              focusImagePath={focusedResultPath}
               onRefresh={refreshRecentResults}
               onToggleFavorite={toggleFavorite}
               onReuse={applyResultToForm}
               onReplay={replayResult}
               onDelete={deleteResultJob}
             />
-          }
-        />
+          </div>
+        </div>
       </MainContent>
     </>
   );
 }
 
-function ServiceReusePanel({
-  strategy,
-  onChangeStrategy,
-  services,
-  selectedServiceId,
-  onSelectService,
+function mergeResults(...groups: JobResult[][]) {
+  const seen = new Set<string>();
+  const merged: JobResult[] = [];
+  for (const group of groups) {
+    for (const item of group) {
+      if (seen.has(item.image_path)) continue;
+      seen.add(item.image_path);
+      merged.push(item);
+    }
+  }
+  return merged;
+}
+
+function ModelStatusIndicator({
+  status,
+  service,
+  busy,
   t,
 }: {
-  strategy: 'auto' | 'manual';
-  onChangeStrategy: (value: 'auto' | 'manual') => void;
-  services: InferenceServiceSummary[];
-  selectedServiceId: string;
-  onSelectService: (value: string) => void;
+  status: string;
+  service: InferenceServiceSummary | null;
+  busy: boolean;
   t: ReturnType<typeof useTranslations<'inferencePage'>>;
 }) {
+  const dotClass =
+    status === 'running'
+      ? 'bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,0.12)]'
+      : status === 'error'
+        ? 'bg-red-500 shadow-[0_0_0_4px_rgba(239,68,68,0.12)]'
+        : ['queued', 'starting', 'stopping'].includes(status)
+          ? 'bg-amber-500 shadow-[0_0_0_4px_rgba(245,158,11,0.14)]'
+          : 'bg-gray-500 shadow-[0_0_0_4px_rgba(107,114,128,0.12)]';
   return (
-    <div className="rounded-xl border border-gray-700 bg-gray-900/70 px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)]">
-      <div className="text-sm font-medium text-gray-200">{t('serviceModeLabel')}</div>
-      <div className="mt-3 inline-flex rounded-2xl border border-gray-700 bg-gray-950 p-1">
-        <button
-          type="button"
-          onClick={() => onChangeStrategy('auto')}
-          className={`relative rounded-xl px-4 py-2.5 text-xs font-medium uppercase tracking-[0.18em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50 ${
-            strategy === 'auto'
-              ? 'border border-cyan-800 bg-cyan-950/70 text-cyan-200 shadow-[inset_0_0_0_1px_rgba(103,232,249,0.1)]'
-              : 'border border-transparent text-gray-400 hover:bg-gray-900 hover:text-gray-100 active:bg-gray-800'
-          }`}
-        >
-          {t('serviceModeAuto')}
-        </button>
-        <button
-          type="button"
-          onClick={() => onChangeStrategy('manual')}
-          className={`relative rounded-xl px-4 py-2.5 text-xs font-medium uppercase tracking-[0.18em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50 ${
-            strategy === 'manual'
-              ? 'border border-cyan-800 bg-cyan-950/70 text-cyan-200 shadow-[inset_0_0_0_1px_rgba(103,232,249,0.1)]'
-              : 'border border-transparent text-gray-400 hover:bg-gray-900 hover:text-gray-100 active:bg-gray-800'
-          }`}
-        >
-          {t('serviceModeManual')}
-        </button>
-      </div>
-      <div className="mt-3 text-sm text-gray-400">
-        {strategy === 'auto' ? t('serviceModeAutoHelp') : t('serviceModeManualHelp')}
-      </div>
-      {strategy === 'manual' ? (
-        <div className="mt-4 space-y-2">
-          {services.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-gray-700 bg-gray-950/60 px-4 py-4 text-sm text-gray-500">
-              {t('noMatchingService')}
-            </div>
-          ) : (
-            services.map(service => (
-              <button
-                key={service.id}
-                type="button"
-                onClick={() => onSelectService(service.id)}
-                className={`flex w-full items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left transition ${
-                  selectedServiceId === service.id
-                    ? 'border-cyan-800 bg-cyan-950/40'
-                    : 'border-gray-700 bg-gray-950/70 hover:border-gray-600 hover:bg-gray-950'
-                }`}
-              >
-                <div className="min-w-0">
-                  <div className="truncate text-sm font-medium text-white/88">{service.name}</div>
-                  <div className="mt-1 text-xs uppercase tracking-[0.18em] text-white/42">
-                    GPU {service.gpu_ids} · {service.use_lora ? t('loraTag') : t('baseModelTag')}
-                  </div>
-                </div>
-                <div className="shrink-0 rounded-full border border-gray-700 bg-gray-900 px-3 py-1 text-[10px] uppercase tracking-[0.18em] text-white/62">
-                  {service.status}
-                </div>
-              </button>
-            ))
-          )}
+    <div className="min-w-0 rounded-md border border-gray-800 bg-gray-950 px-3 py-2">
+      <div className="mb-1 text-xs font-medium text-gray-500">{t('modelRuntime')}</div>
+      <div className="flex min-w-0 items-center gap-2">
+        {busy ? <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-amber-500" /> : <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${dotClass}`} />}
+        <div className="min-w-0">
+          <div className="truncate text-sm font-semibold text-gray-300">{modelStatusLabel(status, t)}</div>
+          <div className="truncate text-xs text-gray-500">{service ? `GPU ${service.gpu_ids} · ${service.name}` : t('modelNoService')}</div>
         </div>
-      ) : null}
+      </div>
     </div>
   );
 }
 
-function Field({ label, value, onChange, textarea = false }: { label: string; value: string; onChange: (value: string) => void; textarea?: boolean }) {
+function modelStatusLabel(status: string, t: ReturnType<typeof useTranslations<'inferencePage'>>) {
+  if (status === 'running') return t('modelRunning');
+  if (status === 'queued') return t('modelQueued');
+  if (status === 'starting') return t('modelStarting');
+  if (status === 'stopping') return t('modelStopping');
+  if (status === 'stopped') return t('modelStopped');
+  if (status === 'draft') return t('modelDraft');
+  if (status === 'error') return t('modelError');
+  return t('modelNotLoaded');
+}
+
+function serviceMatchesModelShape(
+  service: InferenceServiceSummary,
+  config: {
+    selectedModelSource: { kind: string; sourceTrainJobId: string | null; baseModel: string };
+    checkpointPath: string;
+  },
+) {
+  if (service.base_model.trim() !== config.selectedModelSource.baseModel.trim()) return false;
+  if (Boolean(service.use_lora) !== (config.selectedModelSource.kind === 'lora')) return false;
+  if (config.selectedModelSource.kind !== 'lora') return true;
+
+  const selectedSourceTrainJobId = config.selectedModelSource.sourceTrainJobId?.trim() || null;
+  const serviceSourceTrainJobId = service.source_train_job_id?.trim() || null;
+  if (selectedSourceTrainJobId && selectedSourceTrainJobId === serviceSourceTrainJobId) return true;
+  return service.checkpoint_path.trim() === config.checkpointPath.trim();
+}
+
+function SectionTitle({ icon, title }: { icon: ReactNode; title: string }) {
+  return (
+    <div className="flex items-center gap-2 text-sm font-semibold text-gray-300">
+      <span className="flex h-7 w-7 items-center justify-center rounded-lg border border-gray-800 bg-gray-900 text-gray-500">
+        {icon}
+      </span>
+      {title}
+    </div>
+  );
+}
+
+function PromptField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
   return (
     <label className="block">
       <div className="mb-2 text-sm font-medium text-gray-300">{label}</div>
+      <textarea
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        className="min-h-28 w-full resize-y rounded-lg border border-gray-800 bg-gray-950 px-4 py-3 text-gray-300 outline-none transition focus:border-gray-600 dark:focus:border-blue-500"
+      />
+    </label>
+  );
+}
+
+function Field({
+  label,
+  value,
+  onChange,
+  textarea = false,
+  className = '',
+  compact = false,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  textarea?: boolean;
+  className?: string;
+  compact?: boolean;
+}) {
+  return (
+    <label className={`block ${className}`}>
+      <div className="mb-2 text-sm font-medium text-gray-300">{label}</div>
       {textarea ? (
-        <textarea value={value} onChange={e => onChange(e.target.value)} className="min-h-32 w-full rounded-lg border border-gray-700 bg-gray-950 px-4 py-3 outline-none focus:border-blue-500" />
+        <textarea value={value} onChange={e => onChange(e.target.value)} className="min-h-32 w-full rounded-lg border border-gray-800 bg-gray-950 px-4 py-3 text-gray-300 outline-none focus:border-gray-600 dark:focus:border-blue-500" />
       ) : (
-        <input value={value} onChange={e => onChange(e.target.value)} className="w-full rounded-lg border border-gray-700 bg-gray-950 px-4 py-3 outline-none focus:border-blue-500" />
+        <input value={value} onChange={e => onChange(e.target.value)} className={`w-full rounded-lg border border-gray-800 bg-gray-950 text-gray-300 outline-none focus:border-gray-600 dark:focus:border-blue-500 ${compact ? 'px-3 py-2' : 'px-4 py-3'}`} />
       )}
     </label>
   );
@@ -340,7 +552,45 @@ function NumberField({ label, value, onChange }: { label: string; value: number;
   return (
     <label className="block">
       <div className="mb-2 text-sm font-medium text-gray-300">{label}</div>
-      <input type="number" value={value} onChange={e => onChange(Number(e.target.value))} className="w-full rounded-lg border border-gray-700 bg-gray-950 px-4 py-3 outline-none focus:border-blue-500" />
+      <input type="number" value={value} onChange={e => onChange(Number(e.target.value))} className="w-full rounded-lg border border-gray-800 bg-gray-950 px-4 py-3 text-gray-300 outline-none focus:border-gray-600 dark:focus:border-blue-500" />
+    </label>
+  );
+}
+
+function RangeNumberField({
+  label,
+  value,
+  min,
+  max,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <label className="block">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <span className="text-sm font-medium text-gray-300">{label}</span>
+        <input
+          type="number"
+          min={min}
+          max={max}
+          value={value}
+          onChange={event => onChange(Number(event.target.value))}
+          className="h-9 w-24 rounded-lg border border-gray-800 bg-gray-950 px-3 text-right text-sm text-gray-300 outline-none focus:border-gray-600 dark:focus:border-blue-500"
+        />
+      </div>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        value={value}
+        onChange={event => onChange(Number(event.target.value))}
+        className="h-2 w-full accent-[#0969da] dark:accent-blue-500"
+      />
     </label>
   );
 }
