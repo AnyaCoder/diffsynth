@@ -3,11 +3,21 @@
 import type { ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { Loader2, Play, Power, PowerOff, RefreshCw, SlidersHorizontal, Wand2 } from 'lucide-react';
+import { Loader2, Play, Power, PowerOff, RefreshCw, SlidersHorizontal, Tags } from 'lucide-react';
 import InferenceOutputPanel, { InferenceHistoryItem } from '@/components/InferenceOutputPanel';
 import ModelSourceSelect from '@/components/ModelSourceSelect';
 import { useToast } from '@/components/ToastProvider';
 import { MainContent, TopBar } from '@/components/layout';
+import {
+  buildInferencePrompt,
+  DEFAULT_INFERENCE_PROMPT_SELECTION,
+  getSelectedInferencePromptOptions,
+  INFERENCE_PROMPT_GROUPS,
+  InferencePromptGroup,
+  InferencePromptGroupId,
+  InferencePromptOption,
+  InferencePromptSelection,
+} from '@/domain/inferencePrompt';
 import { buildModelSourceConfig, DEFAULT_INFERENCE_BASE_MODEL } from '@/domain/modelSource';
 import useInferenceServices from '@/hooks/useInferenceServices';
 import useGPUInfo from '@/hooks/useGPUInfo';
@@ -30,7 +40,7 @@ export default function InferencePage() {
   const { services, refreshServices } = useInferenceServices(2500);
   const { results: recentResults, refreshResults: refreshRecentResults } = useRecentInferenceResults(16, 5000);
   const [name, setName] = useState(`infer_${Date.now()}`);
-  const [prompt, setPrompt] = useState('精致肖像，水下少女，蓝裙飘逸，发丝轻扬，光影透澈，气泡环绕，面容恬静，细节精致，梦幻唯美。');
+  const [promptSelection, setPromptSelection] = useState<InferencePromptSelection>(DEFAULT_INFERENCE_PROMPT_SELECTION);
   const [seed, setSeed] = useState(0);
   const [steps, setSteps] = useState(40);
   const [gpuIds, setGpuIds] = useState('');
@@ -84,6 +94,8 @@ export default function InferencePage() {
   const activeJobIsOpen =
     Boolean(activeInference) && !['completed', 'error', 'stopped'].includes(activeInferenceJob?.status || '');
   const { results: activeJobResults } = useJobResults(activeInferenceId, activeInference && (activeJobIsOpen || !activeInferenceJob) ? 1500 : null);
+  const prompt = useMemo(() => buildInferencePrompt(promptSelection), [promptSelection]);
+  const selectedPromptOptions = useMemo(() => getSelectedInferencePromptOptions(promptSelection), [promptSelection]);
   const outputResults = useMemo(
     () => mergeResults(activeJobResults, sessionResults, recentResults),
     [activeJobResults, sessionResults, recentResults],
@@ -209,7 +221,6 @@ export default function InferencePage() {
   };
 
   const applyResultToForm = (item: JobResult) => {
-    setPrompt(item.prompt || '');
     setSeed(item.seed);
     setSteps(item.num_inference_steps);
     setCheckpointPath(item.checkpoint_path || '');
@@ -235,7 +246,7 @@ export default function InferencePage() {
         name: replayName,
         job_type: 'infer',
         config: {
-          prompt: item.prompt,
+          prompt,
           seed: item.seed,
           num_inference_steps: item.num_inference_steps,
           output_prefix: outputPrefix,
@@ -276,6 +287,10 @@ export default function InferencePage() {
       setFocusedResultPath(null);
     }
     refreshRecentResults();
+  };
+
+  const selectPromptOption = (groupId: InferencePromptGroupId, optionId: string) => {
+    setPromptSelection(prev => ({ ...prev, [groupId]: optionId }));
   };
 
   return (
@@ -344,7 +359,7 @@ export default function InferencePage() {
 
           <section data-layout-area="prompt" className="rounded-lg border border-gray-800 bg-gray-900 p-3">
             <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_240px]">
-              <PromptField label={t('prompt')} value={prompt} onChange={setPrompt} />
+              <PromptPreview label={t('prompt')} prompt={prompt} selectedOptions={selectedPromptOptions} />
               <button
                 type="button"
                 onClick={runInference}
@@ -370,25 +385,19 @@ export default function InferencePage() {
             <div data-panel-role="infer-left" className="min-w-0 space-y-4">
               <section data-layout-area="generation-settings" className="rounded-lg border border-gray-800 bg-gray-900 p-4">
                 <SectionTitle icon={<SlidersHorizontal className="h-4 w-4" />} title={t('generationSettings')} />
-                <div className="mt-4 grid gap-4 md:grid-cols-2">
+                <PromptTagBuilder
+                  title={t('promptBuilder')}
+                  requiredLabel={t('requiredTag')}
+                  groups={INFERENCE_PROMPT_GROUPS}
+                  selection={promptSelection}
+                  groupTitle={groupId => t(`promptGroups.${groupId}`)}
+                  onSelect={selectPromptOption}
+                />
+                <div className="mt-5 grid gap-4 md:grid-cols-2">
                   <RangeNumberField label={t('steps')} value={steps} min={1} max={80} onChange={setSteps} />
                   <NumberField label={t('seed')} value={seed} onChange={setSeed} />
                   <Field label={t('outputPrefix')} value={outputPrefix} onChange={setOutputPrefix} />
                   <Field label={t('jobName')} value={name} onChange={setName} className="md:col-span-2" />
-                </div>
-              </section>
-
-              <section data-layout-area="extra-settings" className="rounded-lg border border-gray-800 bg-gray-900 p-4">
-                <SectionTitle icon={<Wand2 className="h-4 w-4" />} title={t('extraSettings')} />
-                <div className="mt-4 space-y-4">
-                  <div className="rounded-lg border border-gray-800 bg-gray-900 px-4 py-3 text-sm text-gray-500 dark:border-cyan-900/60 dark:bg-cyan-950/20 dark:text-cyan-100">
-                    {t('modelControlHint')}
-                  </div>
-                  {selectedModelSource.kind === 'lora' ? (
-                    <div className="rounded-lg border border-gray-800 bg-gray-900 px-4 py-3 text-sm text-gray-500 dark:border-amber-900/70 dark:bg-amber-950/30 dark:text-amber-200">
-                      {t('checkpointAutoFill')}
-                    </div>
-                  ) : null}
                 </div>
               </section>
             </div>
@@ -508,16 +517,88 @@ function SectionTitle({ icon, title }: { icon: ReactNode; title: string }) {
   );
 }
 
-function PromptField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+function PromptPreview({
+  label,
+  prompt,
+  selectedOptions,
+}: {
+  label: string;
+  prompt: string;
+  selectedOptions: InferencePromptOption[];
+}) {
   return (
-    <label className="block">
+    <div className="block">
       <div className="mb-2 text-sm font-medium text-gray-300">{label}</div>
-      <textarea
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        className="min-h-28 w-full resize-y rounded-lg border border-gray-800 bg-gray-950 px-4 py-3 text-gray-300 outline-none transition focus:border-gray-600 dark:focus:border-blue-500"
-      />
-    </label>
+      <div className="min-h-28 rounded-lg border border-gray-800 bg-gray-950 px-4 py-3">
+        <div className="flex flex-wrap gap-2">
+          {selectedOptions.map(option => (
+            <span key={option.id} className="rounded-md border border-gray-700 bg-gray-900 px-2.5 py-1 text-xs font-medium text-gray-500">
+              {option.label}
+            </span>
+          ))}
+        </div>
+        <div className="mt-3 text-base leading-7 text-gray-300">{prompt}</div>
+      </div>
+    </div>
+  );
+}
+
+function PromptTagBuilder({
+  title,
+  requiredLabel,
+  groups,
+  selection,
+  groupTitle,
+  onSelect,
+}: {
+  title: string;
+  requiredLabel: string;
+  groups: InferencePromptGroup[];
+  selection: InferencePromptSelection;
+  groupTitle: (groupId: InferencePromptGroupId) => string;
+  onSelect: (groupId: InferencePromptGroupId, optionId: string) => void;
+}) {
+  return (
+    <div className="mt-4">
+      <div className="flex items-center gap-2 text-sm font-semibold text-gray-300">
+        <span className="flex h-7 w-7 items-center justify-center rounded-lg border border-gray-800 bg-gray-900 text-gray-500">
+          <Tags className="h-4 w-4" />
+        </span>
+        {title}
+      </div>
+      <div className="mt-3 grid gap-3 lg:grid-cols-2">
+        {groups.map(group => (
+          <div key={group.id} className="rounded-lg border border-gray-800 bg-gray-950/70 p-3">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div className="text-sm font-semibold text-gray-300">{groupTitle(group.id)}</div>
+              <span className="shrink-0 rounded-md border border-[#0969da]/30 bg-[#0969da]/10 px-2 py-0.5 text-xs font-medium text-[#0969da] dark:border-blue-400/30 dark:bg-blue-500/10 dark:text-blue-300">
+                {requiredLabel}
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {group.options.map(option => {
+                const selected = selection[group.id] === option.id;
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => onSelect(group.id, option.id)}
+                    className={`min-h-9 rounded-md border px-3 py-1.5 text-sm font-medium transition ${
+                      selected
+                        ? 'border-[#0969da] bg-[#0969da] text-white shadow-sm dark:border-blue-500 dark:bg-blue-600'
+                        : 'border-gray-800 bg-gray-900 text-gray-500 hover:border-gray-700 hover:text-gray-300'
+                    }`}
+                    aria-pressed={selected}
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -525,25 +606,19 @@ function Field({
   label,
   value,
   onChange,
-  textarea = false,
   className = '',
   compact = false,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
-  textarea?: boolean;
   className?: string;
   compact?: boolean;
 }) {
   return (
     <label className={`block ${className}`}>
       <div className="mb-2 text-sm font-medium text-gray-300">{label}</div>
-      {textarea ? (
-        <textarea value={value} onChange={e => onChange(e.target.value)} className="min-h-32 w-full rounded-lg border border-gray-800 bg-gray-950 px-4 py-3 text-gray-300 outline-none focus:border-gray-600 dark:focus:border-blue-500" />
-      ) : (
-        <input value={value} onChange={e => onChange(e.target.value)} className={`w-full rounded-lg border border-gray-800 bg-gray-950 text-gray-300 outline-none focus:border-gray-600 dark:focus:border-blue-500 ${compact ? 'px-3 py-2' : 'px-4 py-3'}`} />
-      )}
+      <input value={value} onChange={e => onChange(e.target.value)} className={`w-full rounded-lg border border-gray-800 bg-gray-950 text-gray-300 outline-none focus:border-gray-600 dark:focus:border-blue-500 ${compact ? 'px-3 py-2' : 'px-4 py-3'}`} />
     </label>
   );
 }

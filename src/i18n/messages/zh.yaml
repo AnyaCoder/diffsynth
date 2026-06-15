@@ -207,7 +207,6 @@ inferencePage:
   txt2imgTab: 文生图
   generationSettings: 生成参数
   modelSetup: 模型与服务
-  extraSettings: 附加功能
   outputPanelTitle: 图片生成
   outputEmpty: 生成结果会显示在这里。
   outputPendingTitle: 正在生成图片
@@ -223,6 +222,13 @@ inferencePage:
   refreshOutput: 刷新结果
   jobName: 任务名称
   prompt: 提示词
+  promptBuilder: 目标标签
+  requiredTag: 必选
+  promptGroups:
+    targetType: 目标类型
+    targetModel: 目标型号
+    shotAngle: 拍摄角度
+    background: 背景环境
   seed: 种子
   steps: 步数
   gpuId: GPU 编号
@@ -238,11 +244,9 @@ inferencePage:
   serviceModeAutoHelp: 自动复用任意与当前 GPU 和模型配置匹配的运行中服务。
   serviceModeManualHelp: 将本次文生图推理限定到某一个与当前 GPU 和模型配置匹配的运行中服务。
   noMatchingService: 当前 GPU 和模型配置下没有可匹配的运行中服务。
-  checkpointAutoFill: 选择训练任务后会自动带出最新 checkpoint 路径。
   manualCheckpoint: 手动指定 checkpoint
   checkpointPath: Checkpoint 路径
   serviceReuseHint: 若已有匹配的常驻模型服务，文生图推理会优先复用；否则会临时启动模型执行。
-  modelControlHint: 先在顶部加载模型，待状态变为运行中后再生成图片；生成会复用当前 GPU 和模型配置匹配的运行中模型服务。
   modelRuntime: 模型状态
   modelNoService: 未创建服务
   modelNotLoaded: 未加载
@@ -287,9 +291,9 @@ inferenceGallery:
   filterBase: 原始
   historyHint: 新发起的请求会暂时保留在这里，方便快速回看。
   historyOpen: 打开
-  reuse: 复用提示词
+  reuse: 复用参数
   rerun: 再生成
-  reuseToastTitle: 已带入表单
+  reuseToastTitle: 已带入参数
   rerunToastTitle: 推理已入队
   rerunQueued: 已排入重跑
 servicesPage:

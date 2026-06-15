@@ -207,7 +207,6 @@ inferencePage:
   txt2imgTab: txt2img
   generationSettings: Generation Settings
   modelSetup: Model and Service
-  extraSettings: Extras
   outputPanelTitle: Image Output
   outputEmpty: Generated images will appear here.
   outputPendingTitle: Generating image
@@ -223,6 +222,13 @@ inferencePage:
   refreshOutput: Refresh results
   jobName: Job Name
   prompt: Prompt
+  promptBuilder: Target Tags
+  requiredTag: Required
+  promptGroups:
+    targetType: Target Type
+    targetModel: Target Model
+    shotAngle: Shot Angle
+    background: Background
   seed: Seed
   steps: Steps
   gpuId: GPU ID
@@ -238,11 +244,9 @@ inferencePage:
   serviceModeAutoHelp: Reuse any running service that matches this GPU and model setup.
   serviceModeManualHelp: Limit this text-to-image run to a specific running service that matches this GPU and model setup.
   noMatchingService: No matching running services for the current GPU and model selection.
-  checkpointAutoFill: Checkpoint path will auto-fill from the selected training job.
   manualCheckpoint: Manual checkpoint
   checkpointPath: Checkpoint Path
   serviceReuseHint: Text-to-image generation reuses a matching running model service when available; otherwise it spins up an ephemeral model run.
-  modelControlHint: Load the model from the top bar first, then generate after the status becomes running. Generation uses the running model service that matches the current GPU and model setup.
   modelRuntime: Model status
   modelNoService: No service
   modelNotLoaded: Not loaded
@@ -287,9 +291,9 @@ inferenceGallery:
   filterBase: Base
   historyHint: Newly started requests stay here for quick jump-back.
   historyOpen: Open
-  reuse: Reuse prompt
+  reuse: Reuse settings
   rerun: Run again
-  reuseToastTitle: Prompt loaded
+  reuseToastTitle: Settings loaded
   rerunToastTitle: Inference queued
   rerunQueued: Re-run queued
 servicesPage:
