@@ -228,6 +228,8 @@ inferencePage:
     targetType: 目标类型
     targetModel: 目标型号
     shotAngle: 拍摄角度
+    bearingAngle: 环绕方位
+    cameraAltitude: 视角高度
     background: 背景环境
   seed: 种子
   steps: 步数

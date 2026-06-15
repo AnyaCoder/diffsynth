@@ -1,4 +1,4 @@
-export type InferencePromptGroupId = 'targetType' | 'targetModel' | 'shotAngle' | 'background';
+export type InferencePromptGroupId = 'targetType' | 'targetModel' | 'shotAngle' | 'bearingAngle' | 'cameraAltitude' | 'background';
 
 export interface InferencePromptOption {
   id: string;
@@ -17,6 +17,8 @@ export interface InferencePromptCatalog {
   targetTypes: InferencePromptOption[];
   targetModelsByType: Record<string, InferencePromptOption[]>;
   shotAngles: InferencePromptOption[];
+  bearingAngles: InferencePromptOption[];
+  cameraAltitudes: InferencePromptOption[];
   backgrounds: InferencePromptOption[];
 }
 
@@ -69,6 +71,23 @@ const SHOT_ANGLES: InferencePromptOption[] = [
   { id: 'close-up', label: '近距特写', prompt: '近距离主体特写' },
 ];
 
+const BEARING_ANGLES: InferencePromptOption[] = [
+  { id: 'bearing-0', label: '0°正前', prompt: '以目标为中心的0度正前方观察' },
+  { id: 'bearing-30', label: '30°前侧', prompt: '以目标为中心的30度前侧方观察' },
+  { id: 'bearing-45', label: '45°斜前', prompt: '以目标为中心的45度斜前方观察' },
+  { id: 'bearing-90', label: '90°正侧', prompt: '以目标为中心的90度正侧方观察' },
+  { id: 'bearing-135', label: '135°斜后', prompt: '以目标为中心的135度斜后方观察' },
+  { id: 'bearing-180', label: '180°正后', prompt: '以目标为中心的180度正后方观察' },
+];
+
+const CAMERA_ALTITUDES: InferencePromptOption[] = [
+  { id: 'standard-altitude', label: '常规高度', prompt: '常规拍摄高度' },
+  { id: 'satellite-100m', label: '卫星100m', prompt: '卫星视角，距离目标约100米高空俯拍' },
+  { id: 'satellite-500m', label: '卫星500m', prompt: '卫星视角，距离目标约500米高空俯拍' },
+  { id: 'satellite-2000m', label: '卫星2000m', prompt: '卫星视角，距离目标约2000米高空俯拍' },
+  { id: 'satellite-5000m', label: '卫星5000m', prompt: '卫星视角，距离目标约5000米高空俯拍' },
+];
+
 const BACKGROUNDS: InferencePromptOption[] = [
   { id: 'blue-sky', label: '高空蓝天', prompt: '澄澈浅蓝色高空背景' },
   { id: 'sea', label: '海面巡航', prompt: '开阔海面巡航背景' },
@@ -82,6 +101,8 @@ export const INFERENCE_PROMPT_CATALOG: InferencePromptCatalog = {
   targetTypes: TARGET_TYPES,
   targetModelsByType: TARGET_MODELS_BY_TYPE,
   shotAngles: SHOT_ANGLES,
+  bearingAngles: BEARING_ANGLES,
+  cameraAltitudes: CAMERA_ALTITUDES,
   backgrounds: BACKGROUNDS,
 };
 
@@ -105,6 +126,18 @@ export const INFERENCE_PROMPT_GROUPS: InferencePromptGroup[] = [
     options: SHOT_ANGLES,
   },
   {
+    id: 'bearingAngle',
+    titleKey: 'promptGroups.bearingAngle',
+    required: true,
+    options: BEARING_ANGLES,
+  },
+  {
+    id: 'cameraAltitude',
+    titleKey: 'promptGroups.cameraAltitude',
+    required: true,
+    options: CAMERA_ALTITUDES,
+  },
+  {
     id: 'background',
     titleKey: 'promptGroups.background',
     required: true,
@@ -116,6 +149,8 @@ export const DEFAULT_INFERENCE_PROMPT_SELECTION = {
   targetType: TARGET_TYPES[0]?.id || '',
   targetModel: TARGET_MODELS_BY_TYPE['stealth-fighter'][0]?.id || '',
   shotAngle: SHOT_ANGLES[0]?.id || '',
+  bearingAngle: BEARING_ANGLES[0]?.id || '',
+  cameraAltitude: CAMERA_ALTITUDES[0]?.id || '',
   background: BACKGROUNDS[0]?.id || '',
 } satisfies InferencePromptSelection;
 
@@ -128,6 +163,12 @@ export function getPromptGroupOptions(groupId: InferencePromptGroupId, selection
   }
   if (groupId === 'shotAngle') {
     return SHOT_ANGLES;
+  }
+  if (groupId === 'bearingAngle') {
+    return BEARING_ANGLES;
+  }
+  if (groupId === 'cameraAltitude') {
+    return CAMERA_ALTITUDES;
   }
   return BACKGROUNDS;
 }
@@ -143,6 +184,12 @@ export function normalizeInferencePromptSelection(selection: Partial<InferencePr
   const shotAngle = SHOT_ANGLES.some(option => option.id === selection.shotAngle)
     ? selection.shotAngle!
     : DEFAULT_INFERENCE_PROMPT_SELECTION.shotAngle;
+  const bearingAngle = BEARING_ANGLES.some(option => option.id === selection.bearingAngle)
+    ? selection.bearingAngle!
+    : DEFAULT_INFERENCE_PROMPT_SELECTION.bearingAngle;
+  const cameraAltitude = CAMERA_ALTITUDES.some(option => option.id === selection.cameraAltitude)
+    ? selection.cameraAltitude!
+    : DEFAULT_INFERENCE_PROMPT_SELECTION.cameraAltitude;
   const background = BACKGROUNDS.some(option => option.id === selection.background)
     ? selection.background!
     : DEFAULT_INFERENCE_PROMPT_SELECTION.background;
@@ -151,6 +198,8 @@ export function normalizeInferencePromptSelection(selection: Partial<InferencePr
     targetType,
     targetModel,
     shotAngle,
+    bearingAngle,
+    cameraAltitude,
     background,
   } satisfies InferencePromptSelection;
 }
@@ -161,9 +210,11 @@ export function buildInferencePrompt(selection: InferencePromptSelection) {
   const targetModelOptions = TARGET_MODELS_BY_TYPE[normalized.targetType] ?? TARGET_MODELS_BY_TYPE['stealth-fighter'];
   const targetModel = targetModelOptions.find(option => option.id === normalized.targetModel) ?? targetModelOptions[0];
   const shotAngle = SHOT_ANGLES.find(option => option.id === normalized.shotAngle) ?? SHOT_ANGLES[0];
+  const bearingAngle = BEARING_ANGLES.find(option => option.id === normalized.bearingAngle) ?? BEARING_ANGLES[0];
+  const cameraAltitude = CAMERA_ALTITUDES.find(option => option.id === normalized.cameraAltitude) ?? CAMERA_ALTITUDES[0];
   const background = BACKGROUNDS.find(option => option.id === normalized.background) ?? BACKGROUNDS[0];
 
-  return [targetType, targetModel, shotAngle, background]
+  return [targetType, targetModel, shotAngle, bearingAngle, cameraAltitude, background]
     .filter(Boolean)
     .map(option => option!.prompt)
     .join('，');
@@ -176,6 +227,8 @@ export function getSelectedInferencePromptOptions(selection: InferencePromptSele
     TARGET_TYPES.find(option => option.id === normalized.targetType) ?? TARGET_TYPES[0],
     targetModelOptions.find(option => option.id === normalized.targetModel) ?? targetModelOptions[0],
     SHOT_ANGLES.find(option => option.id === normalized.shotAngle) ?? SHOT_ANGLES[0],
+    BEARING_ANGLES.find(option => option.id === normalized.bearingAngle) ?? BEARING_ANGLES[0],
+    CAMERA_ALTITUDES.find(option => option.id === normalized.cameraAltitude) ?? CAMERA_ALTITUDES[0],
     BACKGROUNDS.find(option => option.id === normalized.background) ?? BACKGROUNDS[0],
   ].filter((option): option is InferencePromptOption => Boolean(option));
 }

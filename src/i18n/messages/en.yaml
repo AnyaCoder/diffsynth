@@ -228,6 +228,8 @@ inferencePage:
     targetType: Target Type
     targetModel: Target Model
     shotAngle: Shot Angle
+    bearingAngle: Bearing Angle
+    cameraAltitude: Camera Altitude
     background: Background
   seed: Seed
   steps: Steps
