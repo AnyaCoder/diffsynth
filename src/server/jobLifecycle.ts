@@ -55,6 +55,17 @@ export async function startJobNow(jobId: string) {
       await runInferenceViaService(job, reusableService.id);
       return prisma.job.findUnique({ where: { id: job.id } });
     }
+    if (config.preferred_service_id) {
+      return prisma.job.update({
+        where: { id: job.id },
+        data: {
+          status: 'error',
+          info: `Preferred inference service ${config.preferred_service_id} is unavailable`,
+          finished_at: new Date(),
+          pid: null,
+        },
+      });
+    }
   }
   const [activeJobs, activeServices] = await Promise.all([
     prisma.job.findMany({

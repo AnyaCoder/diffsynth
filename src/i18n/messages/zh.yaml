@@ -222,15 +222,24 @@ inferencePage:
   refreshOutput: 刷新结果
   jobName: 任务名称
   prompt: 提示词
-  promptBuilder: 目标标签
+  promptBuilder: 可组合提示词
   requiredTag: 必选
+  enabled: 已启用
+  disabled: 未启用
   promptGroups:
     targetType: 目标类型
     targetModel: 目标型号
     shotAngle: 拍摄角度
-    bearingAngle: 环绕方位
-    cameraAltitude: 视角高度
+    targetHeading: 目标朝向
+    cameraDistance: 拍摄距离
+    composition: 构图方式
+    targetScale: 主体占比
     background: 背景环境
+    weather: 天气条件
+    lighting: 光照条件
+    sunShadow: 太阳阴影
+    qualityConstraints: 排除项
+    imageStyle: 图像风格
   seed: 种子
   steps: 步数
   gpuId: GPU 编号

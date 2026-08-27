@@ -51,6 +51,8 @@ export function getRequiredRole(pathname: string, method: string): ApiRole {
   if (pathname === '/api/datasets/captions/save') return 'operator';
   if (pathname === '/api/jobs' && upperMethod === 'POST') return 'operator';
   if (/^\/api\/jobs\/[^/]+\/(start|stop|archive|delete)$/.test(pathname)) return 'operator';
+  if (pathname === '/api/algorithm/v1/text-to-image/jobs' && upperMethod === 'POST') return 'operator';
+  if (/^\/api\/algorithm\/v1\/jobs\/[^/]+\/stop$/.test(pathname) && upperMethod === 'POST') return 'operator';
   if (pathname === '/api/services' && upperMethod === 'POST') return 'operator';
   if (/^\/api\/services\/[^/]+\/(start|stop|generate)$/.test(pathname)) return 'operator';
   if (/^\/api\/services\/[^/]+$/.test(pathname) && upperMethod === 'DELETE') return 'operator';

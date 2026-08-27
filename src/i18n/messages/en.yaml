@@ -222,15 +222,24 @@ inferencePage:
   refreshOutput: Refresh results
   jobName: Job Name
   prompt: Prompt
-  promptBuilder: Target Tags
+  promptBuilder: Composable Prompt
   requiredTag: Required
+  enabled: Enabled
+  disabled: Disabled
   promptGroups:
     targetType: Target Type
     targetModel: Target Model
     shotAngle: Shot Angle
-    bearingAngle: Bearing Angle
-    cameraAltitude: Camera Altitude
+    targetHeading: Target Heading
+    cameraDistance: Camera Distance
+    composition: Composition
+    targetScale: Target Scale
     background: Background
+    weather: Weather
+    lighting: Lighting
+    sunShadow: Sun Shadows
+    qualityConstraints: Exclusions
+    imageStyle: Image Style
   seed: Seed
   steps: Steps
   gpuId: GPU ID

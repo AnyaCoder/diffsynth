@@ -23,7 +23,11 @@ export class JobIntakeError extends Error {
   }
 }
 
-export async function createJobFromRequest(body: any) {
+interface JobIntakeOptions {
+  allowBusyGpu?: boolean;
+}
+
+export async function createJobFromRequest(body: any, options: JobIntakeOptions = {}) {
   const name = String(body.name || '').trim();
 
   if (!name) {
@@ -35,7 +39,7 @@ export async function createJobFromRequest(body: any) {
   }
 
   if (body.job_type === 'infer') {
-    return createInferJob(name, body);
+    return createInferJob(name, body, options);
   }
 
   throw new JobIntakeError('Unsupported job type');
@@ -130,7 +134,7 @@ function resolveRepoRelativePath(inputPath: string) {
   return path.isAbsolute(inputPath) ? inputPath : path.resolve(REPO_ROOT, inputPath);
 }
 
-async function createInferJob(name: string, body: any) {
+async function createInferJob(name: string, body: any, options: JobIntakeOptions) {
   const resolvedConfig = await resolveInferenceConfig({
     ...(body.config ?? {}),
     prompt: String(body.config?.prompt || '').trim(),
@@ -151,12 +155,14 @@ async function createInferJob(name: string, body: any) {
     throw new JobIntakeError('GPU IDs are required');
   }
 
-  const running = await prisma.job.findMany({
-    where: { status: 'running' },
-    select: { gpu_ids: true },
-  });
-  if (isGpuBusy(resolvedConfig.gpu_ids, running.map(item => item.gpu_ids))) {
-    throw new JobIntakeError('Selected GPU is busy', 409);
+  if (!options.allowBusyGpu) {
+    const running = await prisma.job.findMany({
+      where: { status: 'running' },
+      select: { gpu_ids: true },
+    });
+    if (isGpuBusy(resolvedConfig.gpu_ids, running.map(item => item.gpu_ids))) {
+      throw new JobIntakeError('Selected GPU is busy', 409);
+    }
   }
 
   const artifactRoot = await defaultInferOutputPath(name);

@@ -10,9 +10,23 @@ import {
   REQUEST_AUTH_ROLE_HEADER,
   resolveApiToken,
 } from './auth';
+import { getAlgorithmCorsHeaders, isAlgorithmApiPath, isAlgorithmOriginAllowed } from './domain/algorithmApiCors';
 
 export function middleware(request: NextRequest) {
   const requestHeaders = new Headers(request.headers);
+  const algorithmRequest = isAlgorithmApiPath(request.nextUrl.pathname);
+  const origin = request.headers.get('origin');
+
+  if (algorithmRequest && !isAlgorithmOriginAllowed(origin)) {
+    return NextResponse.json(
+      { error: { code: 'CORS_ORIGIN_DENIED', message: 'Origin is not allowed to call the algorithm API' } },
+      { status: 403, headers: { Vary: 'Origin' } },
+    );
+  }
+
+  if (algorithmRequest && request.method.toUpperCase() === 'OPTIONS') {
+    return new NextResponse(null, { status: 204, headers: getAlgorithmCorsHeaders(origin) });
+  }
 
   if (!isApiAuthEnabled()) {
     requestHeaders.set(REQUEST_AUTH_ENABLED_HEADER, '0');
@@ -24,12 +38,16 @@ export function middleware(request: NextRequest) {
   const token = parseBearerToken(request.headers.get('Authorization'));
   const auth = resolveApiToken(token);
   if (!auth) {
-    return unauthorized('Unauthorized');
+    return unauthorized('Unauthorized', algorithmRequest ? getAlgorithmCorsHeaders(origin) : undefined, algorithmRequest);
   }
 
   const requiredRole = getRequiredRole(request.nextUrl.pathname, request.method);
   if (!hasRequiredRole(auth.role, requiredRole)) {
-    return forbidden(`Forbidden: requires ${requiredRole} role`);
+    return forbidden(
+      `Forbidden: requires ${requiredRole} role`,
+      algorithmRequest ? getAlgorithmCorsHeaders(origin) : undefined,
+      algorithmRequest,
+    );
   }
 
   requestHeaders.set(REQUEST_AUTH_ENABLED_HEADER, '1');
@@ -42,10 +60,16 @@ export const config = {
   matcher: ['/api/:path*'],
 };
 
-function unauthorized(message: string) {
-  return NextResponse.json({ error: message }, { status: 401 });
+function unauthorized(message: string, headers?: HeadersInit, structured = false) {
+  return NextResponse.json(
+    structured ? { error: { code: 'UNAUTHORIZED', message } } : { error: message },
+    { status: 401, headers },
+  );
 }
 
-function forbidden(message: string) {
-  return NextResponse.json({ error: message }, { status: 403 });
+function forbidden(message: string, headers?: HeadersInit, structured = false) {
+  return NextResponse.json(
+    structured ? { error: { code: 'FORBIDDEN', message } } : { error: message },
+    { status: 403, headers },
+  );
 }

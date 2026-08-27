@@ -566,8 +566,158 @@ curl "$BASE_URL/api/jobs?id=<job-id>"
 - `user_agent`
 - `created_at`
 
+## Algorithm Adapter API v1
+
+`/api/algorithm/v1/*` 是提供给甲方软件使用的稳定适配层。外部软件不需要了解内部任务表、checkpoint 路径或 Python 启动方式。
+
+默认使用 GPU 6 上已经运行的常驻推理服务。可以通过以下环境变量覆盖：
+
+- `ALGORITHM_API_SERVICE_ID`：固定使用某个常驻服务。
+- `ALGORITHM_API_GPU_IDS`：未指定服务时，从该 GPU 上选择运行中的服务，默认 `6`。
+- `ALGORITHM_API_ALLOWED_ORIGINS`：允许跨域调用的 Origin，逗号分隔；支持 `*` 和末尾通配符。
+
+未设置跨域白名单时，仅允许 `file://` 页面对应的 `null` Origin，以及 `localhost`、`127.0.0.1` 的任意端口。生产部署应显式设置甲方软件的 Origin。
+
+### `GET /api/algorithm/v1/capabilities`
+
+最低权限：`viewer`
+
+返回当前真实可用的模型服务、字段范围和暂不支持的能力。甲方前端应先读取该接口，再决定哪些控件可用。
+
+当前已支持：
+
+- 可见光文生图
+- 固定 `1024x1024`
+- `prompt`、`seed`、`steps`
+- 一次提交 `1..8` 张图
+- 异步状态查询和结果聚合
+- 常驻模型服务复用
+
+当前明确不支持：红外、多光谱、SAR、负面提示词、风格参数、天气增广、多视角几何保证、DOM/GSD、mask 和 depth。
+
+### `POST /api/algorithm/v1/text-to-image/jobs`
+
+最低权限：`operator`
+
+请求示例：
+
+```json
+{
+  "prompt": "高原机场俯视遥感图像，一架 F-35 停放在跑道旁，晴天，可见光",
+  "seed": 102938475,
+  "steps": 40,
+  "count": 2,
+  "resolution": "1024x1024",
+  "modalities": ["visible"]
+}
+```
+
+也可以用 `width: 1024`、`height: 1024` 代替 `resolution`，用 `num_inference_steps` 代替 `steps`。如有多个可用模型，可传 `model_id`，其取值来自 capabilities。
+
+接口返回 `202 Accepted`。`count` 会拆成多个内部任务并串行复用同一个常驻服务；第一张使用请求中的 seed，后续图片依次加一。
+
+```json
+{
+  "batch_id": "715637e8-6bb5-4bb1-82b4-86c330958df2",
+  "status": "queued",
+  "total": 2,
+  "progress": {
+    "queued": 2,
+    "running": 0,
+    "completed": 0,
+    "failed": 0,
+    "stopped": 0
+  },
+  "links": {
+    "self": "/api/algorithm/v1/jobs/715637e8-6bb5-4bb1-82b4-86c330958df2",
+    "results": "/api/algorithm/v1/jobs/715637e8-6bb5-4bb1-82b4-86c330958df2/results",
+    "stop": "/api/algorithm/v1/jobs/715637e8-6bb5-4bb1-82b4-86c330958df2/stop"
+  }
+}
+```
+
+### `GET /api/algorithm/v1/jobs/<batch-id>`
+
+最低权限：`viewer`
+
+批次状态包括：`queued`、`running`、`completed`、`partial`、`failed`、`stopped`。`items` 中包含每张图的任务状态和实际 seed。
+
+### `GET /api/algorithm/v1/jobs/<batch-id>/results`
+
+最低权限：`viewer`
+
+返回已生成图片。`image_url` 指向带批次归属校验和 CORS 的算法专用图片接口；批次未完成时可以多次轮询，`results` 只包含当时已完成的图片。
+
+开放模式下可以直接把 `image_url` 用作 `<img src>`。开启 Bearer 鉴权后，浏览器的 `<img>` 标签不能附加 Authorization 请求头，前端应使用 `fetch(image_url, { headers: { Authorization: ... } })` 读取 Blob，再通过 `URL.createObjectURL(blob)` 显示。
+
+### `POST /api/algorithm/v1/jobs/<batch-id>/stop`
+
+最低权限：`operator`
+
+当前可以停止尚未开始的排队项。已经进入模型推理的请求不能安全中断，此时返回 `409 RUNNING_ITEM_CANNOT_BE_CANCELLED`，不会重启或杀掉 GPU 6 常驻服务。
+
+### Error Format
+
+所有适配接口使用统一错误结构。例如请求红外模态：
+
+```json
+{
+  "error": {
+    "code": "UNSUPPORTED_MODALITY",
+    "message": "Only visible RGB is currently supported",
+    "field": "modalities",
+    "requested": "infrared",
+    "supported": ["visible"]
+  }
+}
+```
+
+参数格式错误返回 `400`，当前模型不支持的能力返回 `422`，模型服务不可用返回 `503`。
+
+### Browser Integration
+
+静态原型页面可以直接调用。不要把暂不支持的默认控件值放进请求体，例如原型中的负面提示词默认非空，当前应禁用并省略该字段。
+
+```js
+const API_BASE = 'http://<server-ip>:8675';
+const token = ''; // 开启鉴权后填写 operator token
+
+async function api(path, init = {}) {
+  const response = await fetch(`${API_BASE}${path}`, {
+    ...init,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...init.headers,
+    },
+  });
+  const payload = await response.json();
+  if (!response.ok) throw new Error(payload.error?.message || `HTTP ${response.status}`);
+  return payload;
+}
+
+const batch = await api('/api/algorithm/v1/text-to-image/jobs', {
+  method: 'POST',
+  body: JSON.stringify({
+    prompt: document.querySelector('#edit-prompt').value,
+    seed: Number(document.querySelector('#edit-seed').value),
+    count: Number(document.querySelector('#edit-count').value),
+    resolution: document.querySelector('#edit-resolution').value,
+    modalities: ['visible'],
+  }),
+});
+
+let status;
+do {
+  await new Promise(resolve => setTimeout(resolve, 2000));
+  status = await api(batch.links.self);
+} while (status.status === 'queued' || status.status === 'running');
+
+const output = await api(batch.links.results);
+```
+
 ## Notes
 
 - API 目前没有用户体系，也没有 token 过期机制。
-- 没有单独实现跨域浏览器访问支持；服务端调用和 `curl` 没问题。
+- 通用 `/api/*` 没有跨域支持；只有 `/api/algorithm/v1/*` 提供受白名单控制的 CORS 和 `OPTIONS` 预检。
 - `/api/files` 仍然是高权限能力的只读暴露面，虽然受根目录约束，但不适合直接裸露到公网。

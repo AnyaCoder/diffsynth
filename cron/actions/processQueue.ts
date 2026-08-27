@@ -4,6 +4,7 @@ import startJob from './startJob';
 import { processQueuedInferenceServices } from '../../src/server/inferenceServices';
 import { isGpuBusy } from '../../src/server/process';
 import { reconcileStaleStoppingJobs } from '../../src/server/jobLifecycle';
+import { processQueuedAlgorithmJobs } from '../../src/server/algorithmApi';
 
 export default async function processQueue() {
   await reconcileStaleStoppingJobs();
@@ -56,4 +57,5 @@ export default async function processQueue() {
   }
 
   await processQueuedInferenceServices();
+  await processQueuedAlgorithmJobs();
 }

@@ -34,6 +34,7 @@ import { InferenceOffloadMode, InferenceServiceSummary, JobResult, JobSummary } 
 
 const GPU_IDS_STORAGE_KEY = 'qwen.inference.gpuIds';
 const OFFLOAD_MODE_STORAGE_KEY = 'qwen.inference.offloadMode';
+const DEFAULT_GPU_ID = process.env.NEXT_PUBLIC_DEFAULT_GPU_ID?.trim() || '';
 
 export default function InferencePage() {
   const t = useTranslations('inferencePage');
@@ -45,8 +46,8 @@ export default function InferencePage() {
   const { results: recentResults, refreshResults: refreshRecentResults } = useRecentInferenceResults(16, 5000);
   const [name, setName] = useState(`infer_${Date.now()}`);
   const [promptSelection, setPromptSelection] = useState<InferencePromptSelection>(DEFAULT_INFERENCE_PROMPT_SELECTION);
-  const [seed, setSeed] = useState(0);
-  const [steps, setSteps] = useState(40);
+  const [seed, setSeed] = useState(1101);
+  const [steps, setSteps] = useState(28);
   const [gpuIds, setGpuIds] = useState('');
   const [offloadMode, setOffloadMode] = useState<InferenceOffloadMode>(DEFAULT_INFERENCE_OFFLOAD_MODE);
   const [gpuIdsRestored, setGpuIdsRestored] = useState(false);
@@ -122,7 +123,9 @@ export default function InferencePage() {
 
   useEffect(() => {
     const storedGpuIds = window.localStorage.getItem(GPU_IDS_STORAGE_KEY);
-    if (storedGpuIds) {
+    if (DEFAULT_GPU_ID) {
+      setGpuIds(DEFAULT_GPU_ID);
+    } else if (storedGpuIds) {
       setGpuIds(storedGpuIds);
     }
     const storedOffloadMode = window.localStorage.getItem(OFFLOAD_MODE_STORAGE_KEY);
@@ -132,6 +135,12 @@ export default function InferencePage() {
 
   useEffect(() => {
     if (!gpuIdsRestored || userChangedGpuIds) return;
+    if (DEFAULT_GPU_ID) {
+      if (gpuIds !== DEFAULT_GPU_ID) {
+        setGpuIds(DEFAULT_GPU_ID);
+      }
+      return;
+    }
     const loadedService =
       modelShapeServices.find(service => service.status === 'running') ??
       modelShapeServices.find(service => ['queued', 'starting', 'stopping'].includes(service.status));
@@ -308,6 +317,16 @@ export default function InferencePage() {
     setPromptSelection(prev => normalizeInferencePromptSelection({ ...prev, [groupId]: optionId }));
   };
 
+  const togglePromptGroup = (groupId: InferencePromptGroupId, enabled: boolean) => {
+    setPromptSelection(prev => {
+      if (!enabled) {
+        return normalizeInferencePromptSelection({ ...prev, [groupId]: '' });
+      }
+      const firstOption = getPromptGroupOptions(groupId, prev)[0];
+      return normalizeInferencePromptSelection({ ...prev, [groupId]: firstOption?.id || '' });
+    });
+  };
+
   return (
     <>
       <TopBar>
@@ -390,6 +409,9 @@ export default function InferencePage() {
                   getOptions={getPromptGroupOptions}
                   groupTitle={group => t(group.titleKey)}
                   onSelect={selectPromptOption}
+                  onToggle={togglePromptGroup}
+                  enabledLabel={t('enabled')}
+                  disabledLabel={t('disabled')}
                 />
                 <div className="mt-5 grid gap-4 md:grid-cols-2">
                   <RangeNumberField label={t('steps')} value={steps} min={1} max={80} onChange={setSteps} />
@@ -653,6 +675,9 @@ function PromptTagBuilder({
   getOptions,
   groupTitle,
   onSelect,
+  onToggle,
+  enabledLabel,
+  disabledLabel,
 }: {
   title: string;
   requiredLabel: string;
@@ -661,6 +686,9 @@ function PromptTagBuilder({
   getOptions: (groupId: InferencePromptGroupId, selection: InferencePromptSelection) => InferencePromptOption[];
   groupTitle: (group: InferencePromptGroup) => string;
   onSelect: (groupId: InferencePromptGroupId, optionId: string) => void;
+  onToggle: (groupId: InferencePromptGroupId, enabled: boolean) => void;
+  enabledLabel: string;
+  disabledLabel: string;
 }) {
   return (
     <div className="mt-4">
@@ -673,17 +701,37 @@ function PromptTagBuilder({
       <div className="mt-3 grid gap-3 lg:grid-cols-2">
         {groups.map(group => {
           const options = getOptions(group.id, selection);
+          const enabled = group.required || Boolean(selection[group.id]);
+          const title = groupTitle(group);
           return (
             <div key={group.id} className="rounded-lg border border-gray-800 bg-gray-950/70 p-3">
               <div className="mb-3 flex items-center justify-between gap-3">
-                <div className="text-sm font-semibold text-gray-300">{groupTitle(group)}</div>
+                <div className="text-sm font-semibold text-gray-300">{title}</div>
                 {group.required ? (
                   <span className="shrink-0 rounded-md border border-[#0969da]/30 bg-[#0969da]/10 px-2 py-0.5 text-xs font-medium text-[#0969da] dark:border-blue-400/30 dark:bg-blue-500/10 dark:text-blue-300">
                     {requiredLabel}
                   </span>
-                ) : null}
+                ) : (
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={enabled}
+                    aria-label={`${title} ${enabled ? enabledLabel : disabledLabel}`}
+                    title={enabled ? enabledLabel : disabledLabel}
+                    onClick={() => onToggle(group.id, !enabled)}
+                    className={`relative h-6 w-11 shrink-0 rounded-full border transition-colors focus:outline-none focus:ring-2 focus:ring-[#0969da]/40 ${
+                      enabled ? 'border-[#0969da] bg-[#0969da] dark:border-blue-500 dark:bg-blue-600' : 'border-gray-700 bg-gray-800'
+                    }`}
+                  >
+                    <span
+                      className={`absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${
+                        enabled ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                )}
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className={`flex flex-wrap gap-2 transition-opacity ${enabled ? '' : 'opacity-40'}`}>
                 {options.map(option => {
                   const selected = selection[group.id] === option.id;
                   return (
@@ -691,10 +739,11 @@ function PromptTagBuilder({
                       key={option.id}
                       type="button"
                       onClick={() => onSelect(group.id, option.id)}
+                      disabled={!enabled}
                       className={`min-h-9 rounded-md border px-3 py-1.5 text-sm font-medium transition ${
                         selected
                           ? 'border-[#0969da] bg-[#0969da] text-white shadow-sm dark:border-blue-500 dark:bg-blue-600'
-                          : 'border-gray-800 bg-gray-900 text-gray-500 hover:border-gray-700 hover:text-gray-300'
+                          : 'border-gray-800 bg-gray-900 text-gray-500 enabled:hover:border-gray-700 enabled:hover:text-gray-300 disabled:cursor-not-allowed'
                       }`}
                       aria-pressed={selected}
                     >
