@@ -224,21 +224,79 @@ const CAMERA_DISTANCES: InferencePromptOption[] = [
 ];
 
 const COMPOSITIONS: InferencePromptOption[] = [
-  { id: 'single-centered', label: '单目标居中', prompt: '画面中只有一个完整目标，目标位于画面几何中心' },
-  { id: 'single-offset', label: '单目标偏置', prompt: '画面中只有一个完整目标，目标略微偏离画面中心并保留环境空间' },
-  { id: 'two-targets', label: '双目标', prompt: '画面中有两个完整且不重叠的同类目标，分列画面两侧' },
-  { id: 'four-quadrants', label: '四象限目标', prompt: '画面中有四个完整且不重叠的同类目标，分别位于四个象限' },
+  {
+    id: 'single-centered',
+    label: '单目标居中',
+    prompt: '画面中只有一个完整目标，目标外接矩形中心位于画面几何中心附近，中心偏差不超过画面宽高的5%，目标四周保持连续无遮挡环境',
+  },
+  {
+    id: 'single-offset',
+    label: '单目标偏置',
+    prompt: '画面中只有一个完整目标，目标外接矩形中心偏离画面中心约15%至20%，不贴近边缘，偏置方向稳定并保留连续环境空间',
+  },
+  {
+    id: 'single-upper-left',
+    label: '单目标左上',
+    prompt: '画面中只有一个完整目标，目标外接矩形中心位于画面左上象限、距左边和上边均约25%至35%的稳定位置，目标完整不贴边，其余区域保持连续环境',
+  },
+  {
+    id: 'single-upper-right',
+    label: '单目标右上',
+    prompt: '画面中只有一个完整目标，目标外接矩形中心位于画面右上象限、距右边和上边均约25%至35%的稳定位置，目标完整不贴边，其余区域保持连续环境',
+  },
+  {
+    id: 'single-lower-left',
+    label: '单目标左下',
+    prompt: '画面中只有一个完整目标，目标外接矩形中心位于画面左下象限、距左边和下边均约25%至35%的稳定位置，目标完整不贴边，其余区域保持连续环境',
+  },
+  {
+    id: 'single-lower-right',
+    label: '单目标右下',
+    prompt: '画面中只有一个完整目标，目标外接矩形中心位于画面右下象限、距右边和下边均约25%至35%的稳定位置，目标完整不贴边，其余区域保持连续环境',
+  },
+  {
+    id: 'two-targets',
+    label: '双目标',
+    prompt: '画面中有两个完整且不重叠的同类目标，两个目标中心分别位于画面左右三分之一附近，间距稳定，四周保留连续环境',
+  },
+  {
+    id: 'four-quadrants',
+    label: '四象限目标',
+    prompt: '画面中有四个完整且不重叠的同类目标，四个目标中心分别位于四个象限的稳定位置，与边缘保持相同安全距离',
+  },
 ];
 
 const TARGET_SCALES: InferencePromptOption[] = [
   {
-    id: 'satellite-small',
-    label: '遥感小目标',
-    prompt: '环境是绝对主体，装备只是中心附近的小型遥感识别目标，目标最长边约为画面宽度的二十五分之一，需要放大图像后才能辨认型号，四周每个方向都有大面积连续地理环境',
+    id: 'satellite-tiny',
+    label: '遥感微小目标 2%–4%',
+    prompt: '环境是绝对主体，装备只是画面中的微小遥感识别目标，目标外接矩形最长边约占画面宽度的2%至4%，目标完整不裁切，只能在放大图像后辨认大致类别，四周每个方向都有大面积连续无遮挡地理环境',
   },
-  { id: 'dominant', label: '主体55%–70%', prompt: '主体约占画面宽高的55%至70%，目标是绝对视觉主体，结构清晰、比例真实' },
-  { id: 'balanced', label: '主体40%–55%', prompt: '主体约占画面宽高的40%至55%，目标完整清晰，周围环境适量可见' },
-  { id: 'distant', label: '主体20%–35%', prompt: '主体约占画面宽高的20%至35%，目标完整可辨，周围环境占据主要画面' },
+  {
+    id: 'satellite-small',
+    label: '遥感小目标 4%–8%',
+    prompt: '环境是绝对主体，装备只是中心附近的小型遥感识别目标，目标外接矩形最长边约占画面宽度的4%至8%（约为画面宽度的1/25至1/12），目标完整不裁切，需要放大图像后才能辨认型号，四周每个方向都有大面积连续无遮挡地理环境',
+  },
+  {
+    id: 'satellite-medium',
+    label: '遥感中小目标 8%–15%',
+    prompt: '环境占据主要画面，装备是完整的中小型遥感识别目标，目标外接矩形最长边约占画面宽度的8%至15%，目标不贴边不裁切，放大后可辨认主要型号轮廓，四周保留连续地理环境',
+  },
+  {
+    id: 'dominant',
+    label: '主体55%–70%',
+    prompt: '目标外接矩形最长边约占画面宽度的55%至70%，目标是主要视觉主体但完整不裁切，结构清晰、比例真实，边缘保留安全空白',
+  },
+  {
+    id: 'balanced',
+    label: '主体40%–55%',
+    prompt: '目标外接矩形最长边约占画面宽度的40%至55%，目标完整清晰、比例真实，四周保留均衡环境空间',
+  },
+  {
+    id: 'distant',
+    label: '主体20%–35%',
+    prompt: '目标外接矩形最长边约占画面宽度的20%至35%，目标完整可辨，周围环境占据主要画面，目标不贴边不裁切',
+  },
 ];
 
 const BACKGROUNDS_BY_TYPE: Record<string, InferencePromptOption[]> = {
@@ -295,27 +353,47 @@ BACKGROUNDS_BY_TYPE.helicopter = [
 BACKGROUNDS_BY_TYPE['armored-vehicle'] = BACKGROUNDS_BY_TYPE['ground-vehicle'];
 
 const LIGHTING: InferencePromptOption[] = [
-  { id: 'natural-daylight', label: '自然白昼', prompt: '自然白昼光线' },
-  { id: 'overcast', label: '阴天漫射光', prompt: '薄云阴天漫射光，阴影柔和' },
-  { id: 'clear-sunlight', label: '晴天日光', prompt: '晴朗白昼自然日光，细节清晰' },
-  { id: 'dusk', label: '黄昏低照度', prompt: '黄昏低照度自然光，保持目标结构可辨' },
+  { id: 'natural-daylight', label: '自然白昼', prompt: '均衡自然白昼光线，颜色和地面材质真实，保持目标与环境曝光一致' },
+  { id: 'overcast', label: '阴天漫射光', prompt: '均匀灰白阴天漫射光，整体对比度略低，阴影短而柔和，不出现强烈高光' },
+  { id: 'clear-sunlight', label: '晴天日光', prompt: '晴朗白昼直射日光，目标和地面细节清晰，方向一致的自然硬阴影' },
+  { id: 'dusk', label: '黄昏低照度', prompt: '黄昏低照度自然光，色温略暖但不过饱和，保持目标结构和地面纹理可辨' },
 ];
 
 const WEATHER: InferencePromptOption[] = [
-  { id: 'clear', label: '晴朗干燥', prompt: '天气晴朗干燥，空气清晰，地面材质保持自然' },
-  { id: 'light-rain', label: '细雨湿地', prompt: '细雨天气，地面湿润并有少量积水，空气透明度轻微下降，雨丝不遮挡目标主体' },
-  { id: 'snow', label: '薄雪覆盖', prompt: '小到中雪天气，地面覆盖薄雪，跑道和停机坪保留可见的清扫区域，目标轮廓清晰' },
-  { id: 'light-fog', label: '薄雾', prompt: '薄雾天气，大气散射增强，远处地物对比度降低，目标主体仍清晰可辨' },
-  { id: 'dense-fog', label: '浓雾', prompt: '浓雾天气，远处背景明显泛白和低对比度，目标主体保持可辨，不被完全遮挡' },
+  {
+    id: 'clear',
+    label: '晴朗干燥',
+    prompt: '天气晴朗干燥，空气清晰，地面干燥且纹理自然，边缘清楚；无降雨、无降雪、无雾幕、无积水和湿地反光',
+  },
+  {
+    id: 'light-rain',
+    label: '细雨湿地',
+    prompt: '正在下连续细密小雨，画面可见许多短而半透明的雨丝；混凝土和道路明显变深，出现少量到中等不规则积水、湿地反光和清楚的雨滴同心圆波纹，空气对比度略降但目标边缘保持可辨；无积雪、无白色雾幕、无晴天硬阴影',
+  },
+  {
+    id: 'snow',
+    label: '薄雪覆盖',
+    prompt: '正在持续小到中雪，地面形成连续但不厚的白色积雪层，跑道和停机坪保留清晰的深色清扫带、车辙和积雪边缘，目标顶部有少量薄雪但轮廓完整；无降雨、无明显积水、无雾幕、无大面积裸露绿地',
+  },
+  {
+    id: 'light-fog',
+    label: '薄雾',
+    prompt: '低空薄雾覆盖机场，画面出现半透明乳白色雾带和不规则薄雾斑块，远处跑道、道路和建筑明显泛白并降低对比度，近处目标仍清晰可辨；无雨丝、无积雪、无大片积水反光',
+  },
+  {
+    id: 'dense-fog',
+    label: '浓雾',
+    prompt: '浓厚低空雾幕覆盖画面约60%至80%，远处跑道、滑行道和背景设施大范围消隐为乳白色低对比度轮廓，近处目标只保留清晰的主要轮廓和可辨外形，不被完全遮挡；无雨丝、无降雪、无明显积水和强烈阳光',
+  },
 ];
 
 const SUN_SHADOW: InferencePromptOption[] = [
-  { id: 'natural-shadow', label: '自然阴影', prompt: '目标在地面形成自然、适度、方向一致的太阳阴影' },
-  { id: 'soft-shadow', label: '柔和阴影', prompt: '太阳光线柔和，目标下方有边缘柔和的淡阴影' },
-  { id: 'short-shadow', label: '短而清晰', prompt: '太阳高度角较高，目标形成短而清晰的自然阴影' },
-  { id: 'long-shadow-left', label: '左下长阴影', prompt: '低角度太阳从画面右上方照射，目标向画面左下方投射细长阴影' },
-  { id: 'long-shadow-right', label: '右下长阴影', prompt: '低角度太阳从画面左上方照射，目标向画面右下方投射细长阴影' },
-  { id: 'no-visible-shadow', label: '无明显阴影', prompt: '以均匀漫射光为主，地面不出现明显硬阴影' },
+  { id: 'natural-shadow', label: '自然阴影', prompt: '目标在地面形成与目标形状一致、边缘自然、方向稳定且强度适中的太阳阴影，阴影不漂移不重复' },
+  { id: 'soft-shadow', label: '柔和阴影', prompt: '太阳光线经过薄云或雾层柔化，目标下方有边缘柔和、透明度适中的淡阴影' },
+  { id: 'short-shadow', label: '短而清晰', prompt: '太阳高度角较高，目标形成位于目标正下方、长度约为目标长度20%至40%的短而清晰自然阴影' },
+  { id: 'long-shadow-left', label: '左下长阴影', prompt: '低角度太阳从画面右上方照射，目标向画面左下方投射一条连续细长阴影，长度约为目标长度1至2倍，方向与目标一致' },
+  { id: 'long-shadow-right', label: '右下长阴影', prompt: '低角度太阳从画面左上方照射，目标向画面右下方投射一条连续细长阴影，长度约为目标长度1至2倍，方向与目标一致' },
+  { id: 'no-visible-shadow', label: '无明显阴影', prompt: '以均匀漫射光为主，目标下方只有极淡的环境接触阴影，不出现明显硬边太阳阴影' },
 ];
 
 const QUALITY_CONSTRAINTS: InferencePromptOption[] = [
@@ -503,13 +581,16 @@ function getResolvedPromptOptions(selection: InferencePromptSelection) {
 
 function getSatelliteScenePrompt(targetType: string) {
   if (targetType === 'warship') {
-    return '展示大范围开阔海域，画面首先看到连续海面、细微海浪、海流色带与少量云雾，海洋占据几乎全部画面';
+    return '展示大范围开阔海域，画面首先看到连续海面、细微海浪、海流色带与少量自然云雾，海洋占据几乎全部画面，海面纹理连续且统一尺度';
   }
   if (targetType === 'armored-vehicle') {
-    return '展示完整军事训练场的大范围地理环境，画面首先看到道路网络、大片土地区域、草地、轮迹和少量营区设施，训练场与地表纹理占据几乎全部画面';
+    return '展示完整军事训练场的大范围地理环境，画面首先看到道路网络、大片土地区域、草地、轮迹和少量营区设施，训练场与地表纹理占据几乎全部画面，地表纹理连续且统一尺度';
   }
-  return '展示完整军事机场的大范围地理环境，画面首先看到长跑道、滑行道网络、大片停机坪、草地和道路，机场设施与地表纹理占据几乎全部画面';
+  return '展示完整军事机场的大范围地理环境，画面首先看到长跑道、滑行道网络、大片停机坪、草地和道路，机场设施与地表纹理占据几乎全部画面，地面纹理和道路网络连续且统一尺度';
 }
+
+const SATELLITE_GEOMETRY_PROMPT =
+  '保持固定卫星比例尺和固定画面构图，目标与跑道、道路、停机坪、轮迹或海面波纹保持真实尺寸比例，目标位置、朝向和大小严格服从上述构图与尺度条件，天气只改变环境外观和能见度，不改变目标几何尺寸、位置和朝向';
 
 function buildSatelliteInferencePrompt(options: ReturnType<typeof getResolvedPromptOptions>) {
   const targetPrompt = getTargetCountPrompt(options.targetModel?.prompt || '', options.normalized.composition);
@@ -520,6 +601,7 @@ function buildSatelliteInferencePrompt(options: ReturnType<typeof getResolvedPro
     sentence(options.cameraDistance?.prompt, options.shotAngle?.prompt),
     sentence(options.composition?.prompt, options.targetScale?.prompt),
     sentence(targetPrompt, options.background?.prompt, options.targetHeading?.prompt),
+    sentence(SATELLITE_GEOMETRY_PROMPT),
     sentence(options.weather?.prompt),
     sentence(options.lighting?.prompt, options.sunShadow?.prompt),
     sentence(options.qualityConstraints?.prompt),
