@@ -13,12 +13,14 @@ import { resolveCondaPath } from './pythonPath';
 import { ensurePathInsideRoots } from './security';
 import { readInferConfigFromJson } from '../domain/jobSpec';
 import { normalizeInferenceOffloadMode, inferenceOffloadModeMatches } from '../domain/inferenceRuntime';
+import { normalizeInferenceControlMode, validateInferenceAssetPath } from './inferenceAssets';
 
 interface InferenceServiceRuntime {
   id: string;
   name: string;
   gpu_ids: string;
   offload_mode: string;
+  control_mode: string;
   artifact_root: string;
 }
 
@@ -38,6 +40,7 @@ function buildServiceSpec(service: Awaited<ReturnType<typeof getInferenceService
       checkpoint_path: service?.checkpoint_path,
       use_lora: service?.use_lora,
       source_train_job_id: service?.source_train_job_id ?? null,
+      control_mode: normalizeInferenceControlMode(service?.control_mode),
     },
   };
 }
@@ -70,7 +73,8 @@ export async function createInferenceServiceFromRequest(body: any) {
     seed: 0,
     num_inference_steps: 1,
     source_train_job_id: body.config?.source_train_job_id || null,
-  });
+    control_mode: body.config?.control_mode,
+  }, { requireControlAssets: false });
 
   if (!resolvedConfig.gpu_ids) {
     throw new Error('GPU IDs are required');
@@ -90,6 +94,7 @@ export async function createInferenceServiceFromRequest(body: any) {
       base_model: resolvedConfig.base_model,
       checkpoint_path: resolvedConfig.checkpoint_path,
       use_lora: Boolean(resolvedConfig.use_lora),
+      control_mode: normalizeInferenceControlMode(resolvedConfig.control_mode),
       source_train_job_id: resolvedConfig.source_train_job_id ?? null,
       artifact_root: artifactRoot,
       info: 'Draft inference service',
@@ -325,7 +330,17 @@ export async function proxyGenerateInferenceService(id: string, payload: unknown
     throw new Error('Service is not running');
   }
 
-  return postJsonWithTimeout(`${service.endpoint_url}/generate`, payload ?? {}, 30 * 60 * 1000);
+  const requested = (payload && typeof payload === 'object' ? payload : {}) as Record<string, unknown>;
+  if (normalizeInferenceControlMode(service.control_mode) === 'inpaint') {
+    const inferenceRoot = await getInferenceRoot();
+    validateInferenceAssetPath(String(requested.control_image_path || ''), inferenceRoot);
+    validateInferenceAssetPath(String(requested.inpaint_mask_path || ''), inferenceRoot);
+  }
+
+  return postJsonWithTimeout(`${service.endpoint_url}/generate`, {
+    ...requested,
+    control_mode: normalizeInferenceControlMode(service.control_mode),
+  }, 30 * 60 * 1000);
 }
 
 export async function findMatchingRunningInferenceService(config: {
@@ -333,6 +348,7 @@ export async function findMatchingRunningInferenceService(config: {
   base_model: string;
   checkpoint_path: string;
   use_lora?: boolean;
+  control_mode?: string;
   source_train_job_id?: string | null;
   preferred_service_id?: string | null;
   offload_mode?: string | null;
@@ -349,12 +365,14 @@ export async function findMatchingRunningInferenceService(config: {
   const normalizedBaseModel = config.base_model.trim();
   const normalizedCheckpoint = config.checkpoint_path.trim();
   const normalizedSourceTrainJobId = config.source_train_job_id?.trim() || null;
+  const normalizedControlMode = normalizeInferenceControlMode(config.control_mode);
 
   const matches = runningServices.filter(service => {
     if (service.gpu_ids.trim() !== normalizedGpuIds) return false;
     if (!inferenceOffloadModeMatches(service.offload_mode, normalizedOffloadMode)) return false;
     if (service.base_model.trim() !== normalizedBaseModel) return false;
     if (Boolean(service.use_lora) !== wantUseLora) return false;
+    if (normalizeInferenceControlMode(service.control_mode) !== normalizedControlMode) return false;
     if (!wantUseLora) return true;
 
     const serviceCheckpoint = service.checkpoint_path.trim();

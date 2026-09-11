@@ -7,6 +7,7 @@ import { ensureDir } from '../paths';
 import { classifyJobRunFile, getJobRunDirectory } from './jobRunDirectory';
 import { readTextLogFile } from './logs';
 import { normalizeInferenceOffloadMode } from '../domain/inferenceRuntime';
+import { normalizeInferenceControlMode, validateInferenceAssetPath } from './inferenceAssets';
 export { buildDefaultTrainConfig, buildTrainCommand, getTrainProcessCount, resolveTrainCommandConfig } from '../domain/trainCommand';
 
 function listCheckpointFiles(root: string) {
@@ -93,6 +94,9 @@ export async function listResults(jobId: string): Promise<JobResult[]> {
           served_by: 'ephemeral',
           base_model: undefined,
           use_lora: true,
+          control_mode: parsed.control_mode ?? 'none',
+          control_image_path: parsed.control_image_path ?? '',
+          inpaint_mask_path: parsed.inpaint_mask_path ?? '',
           step: typeof parsed.step === 'number' ? parsed.step : null,
           epoch: typeof parsed.epoch === 'number' ? parsed.epoch : null,
         });
@@ -129,6 +133,9 @@ export async function listResults(jobId: string): Promise<JobResult[]> {
       served_by: parsed.served_by ?? 'ephemeral',
       base_model: parsed.base_model ?? null,
       use_lora: parsed.use_lora ?? false,
+      control_mode: parsed.control_mode ?? 'none',
+      control_image_path: parsed.control_image_path ?? '',
+      inpaint_mask_path: parsed.inpaint_mask_path ?? '',
     },
   ];
 }
@@ -168,6 +175,9 @@ export async function listRecentInferenceResults(limit = 18): Promise<JobResult[
       served_by: parsed.served_by ?? 'ephemeral',
       base_model: parsed.base_model ?? null,
       use_lora: parsed.use_lora ?? false,
+      control_mode: parsed.control_mode ?? 'none',
+      control_image_path: parsed.control_image_path ?? '',
+      inpaint_mask_path: parsed.inpaint_mask_path ?? '',
     });
     if (results.length >= limit) break;
   }
@@ -189,7 +199,10 @@ export async function ensureQueue(gpuIds: string) {
   });
 }
 
-export async function resolveInferenceConfig(config: InferJobConfig): Promise<InferJobConfig> {
+export async function resolveInferenceConfig(
+  config: InferJobConfig,
+  options: { requireControlAssets?: boolean } = {},
+): Promise<InferJobConfig> {
   let checkpointPath = config.checkpoint_path?.trim();
   const useLora = config.use_lora ?? Boolean(checkpointPath || config.source_train_job_id);
 
@@ -217,6 +230,25 @@ export async function resolveInferenceConfig(config: InferJobConfig): Promise<In
     throw new Error(`Checkpoint path must be a .safetensors file: ${checkpointPath}`);
   }
 
+  const controlMode = normalizeInferenceControlMode(config.control_mode);
+  const inferenceRoot = await getInferenceRoot();
+  let controlImagePath = '';
+  let inpaintMaskPath = '';
+  if (controlMode === 'inpaint') {
+    if (options.requireControlAssets !== false && (!config.control_image_path || !config.inpaint_mask_path)) {
+      throw new Error('Inpaint requires a control image and mask');
+    }
+    if (config.control_image_path) {
+      controlImagePath = validateInferenceAssetPath(config.control_image_path, inferenceRoot);
+    }
+    if (config.inpaint_mask_path) {
+      inpaintMaskPath = validateInferenceAssetPath(config.inpaint_mask_path, inferenceRoot);
+    }
+    if (options.requireControlAssets !== false && (!controlImagePath || !inpaintMaskPath)) {
+      throw new Error('Inpaint requires a control image and mask');
+    }
+  }
+
   return {
     ...config,
     checkpoint_path: useLora ? checkpointPath : '',
@@ -224,6 +256,9 @@ export async function resolveInferenceConfig(config: InferJobConfig): Promise<In
     use_lora: useLora,
     source_train_job_id: useLora ? config.source_train_job_id ?? null : null,
     preferred_service_id: config.preferred_service_id?.trim() || null,
+    control_mode: controlMode,
+    control_image_path: controlImagePath,
+    inpaint_mask_path: inpaintMaskPath,
   };
 }
 

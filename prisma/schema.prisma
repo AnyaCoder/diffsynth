@@ -80,6 +80,7 @@ model InferenceService {
   base_model     String
   checkpoint_path String
   use_lora       Boolean  @default(false)
+  control_mode   String   @default("none")
   source_train_job_id String?
   artifact_root  String
   endpoint_url   String?

@@ -15,6 +15,7 @@ from typing import Any
 import torch
 import uvicorn
 from diffsynth.pipelines.qwen_image import ModelConfig, QwenImagePipeline
+from inference_control import append_controlnet_model_config, load_inpaint_inputs, normalize_control_mode
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
@@ -65,13 +66,13 @@ def normalize_offload_mode(value):
     return "none" if value == "none" else "disk_cpu"
 
 
-def build_model_configs(offload_mode):
+def build_model_configs(offload_mode, control_mode):
     vram_config = build_low_vram_config() if offload_mode == "disk_cpu" else {}
-    return [
+    return append_controlnet_model_config([
         ModelConfig(model_id="Qwen/Qwen-Image-2512", origin_file_pattern="transformer/diffusion_pytorch_model*.safetensors", **vram_config),
         ModelConfig(model_id="Qwen/Qwen-Image", origin_file_pattern="text_encoder/model*.safetensors", **vram_config),
         ModelConfig(model_id="Qwen/Qwen-Image", origin_file_pattern="vae/diffusion_pytorch_model.safetensors", **vram_config),
-    ]
+    ], offload_mode, control_mode)
 
 
 def build_pipeline_kwargs(offload_mode):
@@ -93,6 +94,9 @@ class GenerateRequest(BaseModel):
     seed: int = 0
     num_inference_steps: int = 40
     output_prefix: str = "service"
+    control_mode: str = "none"
+    control_image_path: str = ""
+    inpaint_mask_path: str = ""
 
 
 def main():
@@ -120,6 +124,7 @@ def main():
                 "checkpoint_path": service["checkpoint_path"],
                 "use_lora": bool(service["use_lora"]),
                 "source_train_job_id": service["source_train_job_id"],
+                "control_mode": normalize_control_mode(service.get("control_mode")),
             },
         }
     )
@@ -152,11 +157,12 @@ def main():
 
     try:
         offload_mode = normalize_offload_mode(service.get("offload_mode"))
+        control_mode = normalize_control_mode(service.get("control_mode"))
         log(f"Loading QwenImagePipeline for service... offload_mode={offload_mode}")
         pipe = QwenImagePipeline.from_pretrained(
             torch_dtype=torch.bfloat16,
             device="cuda",
-            model_configs=build_model_configs(offload_mode),
+            model_configs=build_model_configs(offload_mode, control_mode),
             tokenizer_config=ModelConfig(model_id="Qwen/Qwen-Image", origin_file_pattern="tokenizer/"),
             **build_pipeline_kwargs(offload_mode),
         )
@@ -196,6 +202,7 @@ def main():
                 "offload_mode": normalize_offload_mode(latest.get("offload_mode")),
                 "port": latest["port"],
                 "use_lora": bool(latest["use_lora"]),
+                "control_mode": normalize_control_mode(latest.get("control_mode")),
                 "base_model": latest["base_model"],
                 "checkpoint_path": latest["checkpoint_path"],
                 "updated_at": latest["updated_at"],
@@ -213,11 +220,22 @@ def main():
                 output_name = f"{payload.output_prefix or 'service'}_{int(started)}.jpg"
                 output_path = Path(service["artifact_root"]) / output_name
                 log(f"Generating image: seed={payload.seed} steps={payload.num_inference_steps} output={output_name}")
+                control_inputs = {}
+                if control_mode == "inpaint":
+                    try:
+                        control_inputs = load_inpaint_inputs(
+                            payload.control_image_path, payload.inpaint_mask_path, 1328, 1328
+                        )
+                    except (ValueError, FileNotFoundError) as exc:
+                        log(f"Invalid Inpaint assets: {exc}")
+                        raise HTTPException(status_code=400, detail=str(exc))
+                    log(f"Using Inpaint ControlNet: image={payload.control_image_path} mask={payload.inpaint_mask_path}")
                 try:
                     image = current_pipe(
                         payload.prompt,
                         seed=int(payload.seed),
                         num_inference_steps=int(payload.num_inference_steps),
+                        **control_inputs,
                     )
                     image.save(output_path)
                     result = {
@@ -231,6 +249,9 @@ def main():
                         "use_lora": bool(service["use_lora"]),
                         "base_model": service["base_model"],
                         "source_train_job_id": service["source_train_job_id"],
+                        "control_mode": control_mode,
+                        "control_image_path": payload.control_image_path or "",
+                        "inpaint_mask_path": payload.inpaint_mask_path or "",
                     }
                     run_dir.write_result(result)
                     log(f"Saved image to {output_path}")

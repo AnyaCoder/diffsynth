@@ -282,6 +282,14 @@ inferencePage:
   queued: Inference queued
   started: Started
   noLocalRequests: No local requests yet.
+  controlMode: Structural control
+  controlModeHelp: Inpaint keeps the control image background and generates only inside the mask.
+  controlModeNone: None
+  controlModeInpaint: Inpaint
+  controlImage: Control image / DOM
+  inpaintMask: Target mask
+  inpaintAssetsRequired: Inpaint files missing
+  inpaintAssetsRequiredDetail: Select both a control image and a target mask.
 inferenceGallery:
   untitled: Untitled
   delete: Delete

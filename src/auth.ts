@@ -48,6 +48,7 @@ export function getRequiredRole(pathname: string, method: string): ApiRole {
 
   if (pathname === '/api/datasets/create') return 'operator';
   if (pathname === '/api/datasets/upload') return 'operator';
+  if (pathname === '/api/inference/assets') return 'operator';
   if (pathname === '/api/datasets/captions/save') return 'operator';
   if (pathname === '/api/jobs' && upperMethod === 'POST') return 'operator';
   if (/^\/api\/jobs\/[^/]+\/(start|stop|archive|delete)$/.test(pathname)) return 'operator';

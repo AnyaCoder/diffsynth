@@ -264,6 +264,9 @@ async function runInferenceViaService(job: Job, serviceId: string) {
       seed: config.seed,
       num_inference_steps: config.num_inference_steps,
       output_prefix: config.output_prefix || 'result',
+      control_mode: config.control_mode || 'none',
+      control_image_path: config.control_image_path || '',
+      inpaint_mask_path: config.inpaint_mask_path || '',
     });
 
     const remoteOutputPath = String(result.output_path || '').trim();
@@ -283,6 +286,9 @@ async function runInferenceViaService(job: Job, serviceId: string) {
       source_train_job_id: config.source_train_job_id ?? null,
       service_id: serviceId,
       served_by: 'service',
+      control_mode: config.control_mode || 'none',
+      control_image_path: config.control_image_path || '',
+      inpaint_mask_path: config.inpaint_mask_path || '',
     };
     fs.writeFileSync(runDir.resultPath, JSON.stringify(resultPayload, null, 2), 'utf-8');
     fs.writeFileSync(

@@ -282,6 +282,14 @@ inferencePage:
   queued: 推理已排队
   started: 已启动
   noLocalRequests: 还没有本地请求。
+  controlMode: 结构控制
+  controlModeHelp: Inpaint 会固定控制图背景，仅在掩膜区域生成目标。
+  controlModeNone: 无
+  controlModeInpaint: Inpaint
+  controlImage: 控制图 / DOM
+  inpaintMask: 目标掩膜
+  inpaintAssetsRequired: 缺少 Inpaint 文件
+  inpaintAssetsRequiredDetail: 请同时选择控制图和目标掩膜。
 inferenceGallery:
   untitled: 未命名
   delete: 删除

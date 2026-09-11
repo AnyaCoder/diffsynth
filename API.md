@@ -286,6 +286,42 @@ curl -X POST "$BASE_URL/api/datasets/upload" \
 }
 ```
 
+### Inference Assets
+
+#### `POST /api/inference/assets`
+
+用途：上传 Inpaint 的控制图和目标掩膜。文件会保存到 `INFERENCE_ROOT/assets/<upload-id>/`，接口返回的绝对路径可直接放进推理任务配置。
+
+最低权限：`operator`
+
+请求格式：`multipart/form-data`
+
+字段：
+
+- `inputImage`：控制图/DOM 背景
+- `inpaintMask`：目标掩膜；非零区域会交给模型重新生成
+
+支持扩展名：`.png`、`.jpg`、`.jpeg`、`.webp`。单个文件最大 `100 MB`。服务端会拒绝根目录之外的路径、目录和不支持的文件类型。
+
+示例：
+
+```bash
+ASSETS_JSON=$(curl -s -X POST "$BASE_URL/api/inference/assets" \
+  -H "Authorization: Bearer $TOKEN" \
+  -F 'inputImage=@./dom.png' \
+  -F 'inpaintMask=@./mask.png')
+printf '%s\n' "$ASSETS_JSON"
+```
+
+返回：
+
+```json
+{
+  "input_image_path": "/abs/path/to/outputs/qwen_image/assets/<upload-id>/input.png",
+  "inpaint_mask_path": "/abs/path/to/outputs/qwen_image/assets/<upload-id>/mask.png"
+}
+```
+
 ### Files
 
 #### `GET /api/images/<dataset>/<file>`
@@ -409,6 +445,28 @@ curl "$BASE_URL/api/jobs?id=<job-id>"
 }
 ```
 
+Inpaint 推理需要先上传控制图和掩膜，再将返回路径写入任务配置：
+
+```json
+{
+  "name": "infer_inpaint_demo",
+  "job_type": "infer",
+  "config": {
+    "prompt": "a modern office lobby, architectural visualization",
+    "seed": 0,
+    "num_inference_steps": 40,
+    "output_prefix": "inpaint",
+    "gpu_ids": "7",
+    "base_model": "Qwen/Qwen-Image-2512",
+    "control_mode": "inpaint",
+    "control_image_path": "/abs/path/to/outputs/qwen_image/assets/<upload-id>/input.png",
+    "inpaint_mask_path": "/abs/path/to/outputs/qwen_image/assets/<upload-id>/mask.png"
+  }
+}
+```
+
+`control_mode` 只接受 `none`（默认）和 `inpaint`。启用 `inpaint` 时两个路径都必填，并且必须位于 `INFERENCE_ROOT` 下；任务落盘的 `job_spec.json` 会保留这三个字段。常驻服务也按 `control_mode` 区分，只有加载了 `DiffSynth-Studio/Qwen-Image-Blockwise-ControlNet-Inpaint` 的服务才会处理 Inpaint 请求。
+
 也可以不传 `checkpoint_path`，改传：
 
 ```json
@@ -489,6 +547,9 @@ curl "$BASE_URL/api/jobs?id=<job-id>"
 - `checkpoint_path`
 - `created_at`
 - `source_train_job_id`
+- `control_mode`
+- `control_image_path`
+- `inpaint_mask_path`
 
 ### Queue
 

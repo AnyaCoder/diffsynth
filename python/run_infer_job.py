@@ -10,6 +10,7 @@ from pathlib import Path
 
 import torch
 from diffsynth.pipelines.qwen_image import ModelConfig, QwenImagePipeline
+from inference_control import append_controlnet_model_config, load_inpaint_inputs, normalize_control_mode
 
 from job_run_directory import JobRunDirectory
 
@@ -90,13 +91,13 @@ def normalize_offload_mode(value):
     return "none" if value == "none" else "disk_cpu"
 
 
-def build_model_configs(offload_mode):
+def build_model_configs(offload_mode, control_mode):
     vram_config = build_low_vram_config() if offload_mode == "disk_cpu" else {}
-    return [
+    return append_controlnet_model_config([
         ModelConfig(model_id="Qwen/Qwen-Image-2512", origin_file_pattern="transformer/diffusion_pytorch_model*.safetensors", **vram_config),
         ModelConfig(model_id="Qwen/Qwen-Image", origin_file_pattern="text_encoder/model*.safetensors", **vram_config),
         ModelConfig(model_id="Qwen/Qwen-Image", origin_file_pattern="vae/diffusion_pytorch_model.safetensors", **vram_config),
-    ]
+    ], offload_mode, control_mode)
 
 
 def build_pipeline_kwargs(offload_mode):
@@ -136,11 +137,12 @@ def main():
     try:
         with run_dir.log.open("a", encoding="utf-8") as log_file:
             offload_mode = normalize_offload_mode(spec.get("offload_mode"))
+            control_mode = normalize_control_mode(spec.get("control_mode"))
             log_file.write(f"Loading QwenImagePipeline... offload_mode={offload_mode}\n")
             pipe = QwenImagePipeline.from_pretrained(
                 torch_dtype=torch.bfloat16,
                 device="cuda",
-                model_configs=build_model_configs(offload_mode),
+                model_configs=build_model_configs(offload_mode, control_mode),
                 tokenizer_config=ModelConfig(model_id="Qwen/Qwen-Image", origin_file_pattern="tokenizer/"),
                 **build_pipeline_kwargs(offload_mode),
             )
@@ -153,10 +155,19 @@ def main():
                 log_file.write(f"Loading LoRA from {checkpoint_path}\n")
                 pipe.load_lora(pipe.dit, checkpoint_path, hotload=True)
 
+            control_inputs = {}
+            if control_mode == "inpaint":
+                control_inputs = load_inpaint_inputs(
+                    spec.get("control_image_path"), spec.get("inpaint_mask_path"), 1328, 1328
+                )
+                log_file.write(
+                    f"Using Inpaint ControlNet: image={spec.get('control_image_path')} mask={spec.get('inpaint_mask_path')}\n"
+                )
             image = pipe(
                 spec["prompt"],
                 seed=int(spec["seed"]),
                 num_inference_steps=int(spec["num_inference_steps"]),
+                **control_inputs,
             )
             output_name = f'{spec["output_prefix"] or "result"}_{int(time.time())}.jpg'
             output_path = run_dir.root / output_name
@@ -172,6 +183,9 @@ def main():
                 "base_model": spec.get("base_model"),
                 "created_at": now_iso(),
                 "source_train_job_id": spec.get("source_train_job_id"),
+                "control_mode": control_mode,
+                "control_image_path": spec.get("control_image_path", ""),
+                "inpaint_mask_path": spec.get("inpaint_mask_path", ""),
             }
             run_dir.write_result(payload)
             log_file.write(f"Saved image to {output_path}\n")

@@ -17,7 +17,12 @@ export async function POST(request: Request) {
       resourceId: service.id,
       resourceType: 'service',
       statusCode: 200,
-      detail: { name: service.name, gpu_ids: service.gpu_ids, use_lora: service.use_lora },
+      detail: {
+        name: service.name,
+        gpu_ids: service.gpu_ids,
+        use_lora: service.use_lora,
+        control_mode: service.control_mode,
+      },
     });
     return NextResponse.json(service);
   } catch (error: any) {

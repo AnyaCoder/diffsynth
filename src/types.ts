@@ -96,6 +96,7 @@ export interface TrainJobConfig {
 }
 
 export type InferenceOffloadMode = 'disk_cpu' | 'none';
+export type InferenceControlMode = 'none' | 'inpaint';
 
 export interface InferJobConfig {
   prompt: string;
@@ -109,6 +110,9 @@ export interface InferJobConfig {
   use_lora?: boolean;
   source_train_job_id?: string | null;
   preferred_service_id?: string | null;
+  control_mode?: InferenceControlMode;
+  control_image_path?: string;
+  inpaint_mask_path?: string;
 }
 
 export interface JobSummary {
@@ -152,6 +156,9 @@ export interface JobResult {
   served_by?: 'service' | 'ephemeral';
   base_model?: string;
   use_lora?: boolean;
+  control_mode?: InferenceControlMode;
+  control_image_path?: string;
+  inpaint_mask_path?: string;
   job_id?: string;
   job_name?: string;
   job_status?: string;
@@ -185,6 +192,7 @@ export interface InferenceServiceSummary {
   base_model: string;
   checkpoint_path: string;
   use_lora: boolean;
+  control_mode?: InferenceControlMode;
   source_train_job_id?: string | null;
   artifact_root: string;
   endpoint_url?: string | null;

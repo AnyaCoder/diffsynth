@@ -30,7 +30,7 @@ import useJobsList from '@/hooks/useJobsList';
 import useModelSourceSelection from '@/hooks/useModelSourceSelection';
 import useRecentInferenceResults from '@/hooks/useRecentInferenceResults';
 import { apiClient } from '@/utils/api';
-import { InferenceOffloadMode, InferenceServiceSummary, JobResult, JobSummary } from '@/types';
+import { InferenceControlMode, InferenceOffloadMode, InferenceServiceSummary, JobResult, JobSummary } from '@/types';
 
 const GPU_IDS_STORAGE_KEY = 'qwen.inference.gpuIds';
 const OFFLOAD_MODE_STORAGE_KEY = 'qwen.inference.offloadMode';
@@ -50,6 +50,9 @@ export default function InferencePage() {
   const [steps, setSteps] = useState(28);
   const [gpuIds, setGpuIds] = useState('');
   const [offloadMode, setOffloadMode] = useState<InferenceOffloadMode>(DEFAULT_INFERENCE_OFFLOAD_MODE);
+  const [controlMode, setControlMode] = useState<InferenceControlMode>('none');
+  const [controlImageFile, setControlImageFile] = useState<File | null>(null);
+  const [inpaintMaskFile, setInpaintMaskFile] = useState<File | null>(null);
   const [gpuIdsRestored, setGpuIdsRestored] = useState(false);
   const [userChangedGpuIds, setUserChangedGpuIds] = useState(false);
   const [outputPrefix, setOutputPrefix] = useState('image');
@@ -79,8 +82,8 @@ export default function InferencePage() {
     [selectedModelSource, checkpointPath]
   );
   const modelShapeServices = useMemo(
-    () => services.filter(service => serviceMatchesModelShape(service, { selectedModelSource, checkpointPath, offloadMode })),
-    [services, selectedModelSource, checkpointPath, offloadMode]
+    () => services.filter(service => serviceMatchesModelShape(service, { selectedModelSource, checkpointPath, offloadMode, controlMode })),
+    [services, selectedModelSource, checkpointPath, offloadMode, controlMode]
   );
   const configuredModelServices = useMemo(
     () => modelShapeServices.filter(service => service.gpu_ids.trim() === gpuIds.trim()),
@@ -181,6 +184,7 @@ export default function InferencePage() {
           config: {
             gpu_ids: gpuIds,
             offload_mode: offloadMode,
+            control_mode: controlMode,
             ...modelSourceConfig,
           },
         });
@@ -212,8 +216,20 @@ export default function InferencePage() {
       pushToast({ title: t('modelRequired'), description: t('modelRequiredDetail'), tone: 'warning' });
       return;
     }
+    if (controlMode === 'inpaint' && (!controlImageFile || !inpaintMaskFile)) {
+      pushToast({ title: t('inpaintAssetsRequired'), description: t('inpaintAssetsRequiredDetail'), tone: 'warning' });
+      return;
+    }
     setIsSubmittingInference(true);
     try {
+      let controlAssets: { input_image_path?: string; inpaint_mask_path?: string } = {};
+      if (controlMode === 'inpaint') {
+        const formData = new FormData();
+        formData.append('inputImage', controlImageFile as File);
+        formData.append('inpaintMask', inpaintMaskFile as File);
+        const uploadResponse = await apiClient.post('/api/inference/assets', formData);
+        controlAssets = uploadResponse.data;
+      }
       const response = await apiClient.post('/api/jobs', {
         name,
         job_type: 'infer',
@@ -226,6 +242,9 @@ export default function InferencePage() {
           offload_mode: offloadMode,
           ...modelSourceConfig,
           preferred_service_id: runningModelService.id,
+          control_mode: controlMode,
+          control_image_path: controlAssets.input_image_path || '',
+          inpaint_mask_path: controlAssets.inpaint_mask_path || '',
         },
       });
       const created = response.data;
@@ -248,6 +267,7 @@ export default function InferencePage() {
     setSteps(item.num_inference_steps);
     setCheckpointPath(item.checkpoint_path || '');
     setSourceTrainJobId(item.source_train_job_id ?? null);
+    setControlMode(item.control_mode || 'none');
     if (item.gpu_ids) {
       setGpuIds(item.gpu_ids);
     }
@@ -258,7 +278,26 @@ export default function InferencePage() {
     if (isSubmittingReplay) {
       return;
     }
-    if (!runningModelService) {
+    const replayControlMode = item.control_mode || 'none';
+    const replayGpuIds = item.gpu_ids?.trim() || gpuIds.trim();
+    const replayOffloadMode = normalizeInferenceOffloadMode(item.offload_mode);
+    const replayBaseModel = item.base_model || DEFAULT_INFERENCE_BASE_MODEL;
+    const replayUseLora = Boolean(item.use_lora);
+    const replayCheckpointPath = item.checkpoint_path || '';
+    const replaySourceTrainJobId = item.source_train_job_id ?? null;
+    const replayService = services.find(service =>
+      service.status === 'running' &&
+      serviceMatchesReplayResult(service, {
+        gpuIds: replayGpuIds,
+        offloadMode: replayOffloadMode,
+        controlMode: replayControlMode,
+        baseModel: replayBaseModel,
+        useLora: replayUseLora,
+        checkpointPath: replayCheckpointPath,
+        sourceTrainJobId: replaySourceTrainJobId,
+      }),
+    );
+    if (!replayService) {
       pushToast({ title: t('modelRequired'), description: t('modelRequiredDetail'), tone: 'warning' });
       return;
     }
@@ -269,17 +308,20 @@ export default function InferencePage() {
         name: replayName,
         job_type: 'infer',
         config: {
-          prompt,
+          prompt: item.prompt || prompt,
           seed: item.seed,
           num_inference_steps: item.num_inference_steps,
           output_prefix: outputPrefix,
-          gpu_ids: item.gpu_ids || gpuIds,
-          offload_mode: offloadMode,
-          checkpoint_path: item.checkpoint_path,
-          base_model: item.base_model || DEFAULT_INFERENCE_BASE_MODEL,
-          use_lora: item.use_lora,
-          source_train_job_id: item.source_train_job_id ?? null,
-          preferred_service_id: runningModelService.id,
+          gpu_ids: replayGpuIds,
+          offload_mode: replayOffloadMode,
+          checkpoint_path: replayCheckpointPath,
+          base_model: replayBaseModel,
+          use_lora: replayUseLora,
+          control_mode: replayControlMode,
+          control_image_path: item.control_image_path || '',
+          inpaint_mask_path: item.inpaint_mask_path || '',
+          source_train_job_id: replaySourceTrainJobId,
+          preferred_service_id: replayService.id,
         },
       });
       const created = response.data;
@@ -413,6 +455,15 @@ export default function InferencePage() {
                   enabledLabel={t('enabled')}
                   disabledLabel={t('disabled')}
                 />
+                <InpaintControlPanel
+                  mode={controlMode}
+                  controlImageFile={controlImageFile}
+                  inpaintMaskFile={inpaintMaskFile}
+                  onModeChange={setControlMode}
+                  onControlImageChange={setControlImageFile}
+                  onMaskChange={setInpaintMaskFile}
+                  t={t}
+                />
                 <div className="mt-5 grid gap-4 md:grid-cols-2">
                   <RangeNumberField label={t('steps')} value={steps} min={1} max={80} onChange={setSteps} />
                   <NumberField label={t('seed')} value={seed} onChange={setSeed} />
@@ -520,16 +571,43 @@ function serviceMatchesModelShape(
     selectedModelSource: { kind: string; sourceTrainJobId: string | null; baseModel: string };
     checkpointPath: string;
     offloadMode: InferenceOffloadMode;
+    controlMode: InferenceControlMode;
   },
 ) {
   if (normalizeInferenceOffloadMode(service.offload_mode) !== normalizeInferenceOffloadMode(config.offloadMode)) return false;
   if (service.base_model.trim() !== config.selectedModelSource.baseModel.trim()) return false;
   if (Boolean(service.use_lora) !== (config.selectedModelSource.kind === 'lora')) return false;
+  if ((service.control_mode || 'none') !== config.controlMode) return false;
   if (config.selectedModelSource.kind !== 'lora') return true;
 
   const selectedSourceTrainJobId = config.selectedModelSource.sourceTrainJobId?.trim() || null;
   const serviceSourceTrainJobId = service.source_train_job_id?.trim() || null;
   if (selectedSourceTrainJobId && selectedSourceTrainJobId === serviceSourceTrainJobId) return true;
+  return service.checkpoint_path.trim() === config.checkpointPath.trim();
+}
+
+function serviceMatchesReplayResult(
+  service: InferenceServiceSummary,
+  config: {
+    gpuIds: string;
+    offloadMode: InferenceOffloadMode;
+    controlMode: InferenceControlMode;
+    baseModel: string;
+    useLora: boolean;
+    checkpointPath: string;
+    sourceTrainJobId: string | null | undefined;
+  },
+) {
+  if (service.gpu_ids.trim() !== config.gpuIds.trim()) return false;
+  if (normalizeInferenceOffloadMode(service.offload_mode) !== config.offloadMode) return false;
+  if ((service.control_mode || 'none') !== config.controlMode) return false;
+  if (service.base_model.trim() !== config.baseModel.trim()) return false;
+  if (Boolean(service.use_lora) !== config.useLora) return false;
+  if (!config.useLora) return true;
+
+  const sourceTrainJobId = config.sourceTrainJobId?.trim() || null;
+  const serviceSourceTrainJobId = service.source_train_job_id?.trim() || null;
+  if (sourceTrainJobId && sourceTrainJobId === serviceSourceTrainJobId) return true;
   return service.checkpoint_path.trim() === config.checkpointPath.trim();
 }
 
@@ -757,6 +835,65 @@ function PromptTagBuilder({
         })}
       </div>
     </div>
+  );
+}
+
+function InpaintControlPanel({
+  mode,
+  controlImageFile,
+  inpaintMaskFile,
+  onModeChange,
+  onControlImageChange,
+  onMaskChange,
+  t,
+}: {
+  mode: InferenceControlMode;
+  controlImageFile: File | null;
+  inpaintMaskFile: File | null;
+  onModeChange: (value: InferenceControlMode) => void;
+  onControlImageChange: (file: File | null) => void;
+  onMaskChange: (file: File | null) => void;
+  t: ReturnType<typeof useTranslations<'inferencePage'>>;
+}) {
+  const enabled = mode === 'inpaint';
+  return (
+    <div className="mt-4 rounded-lg border border-gray-800 bg-gray-950/70 p-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <div className="text-sm font-semibold text-gray-300">{t('controlMode')}</div>
+          <div className="mt-1 text-xs text-gray-500">{t('controlModeHelp')}</div>
+        </div>
+        <select
+          value={mode}
+          onChange={event => onModeChange(event.target.value === 'inpaint' ? 'inpaint' : 'none')}
+          className="h-9 rounded-md border border-gray-700 bg-gray-900 px-3 text-sm font-medium text-gray-300 outline-none focus:border-blue-500"
+        >
+          <option value="none">{t('controlModeNone')}</option>
+          <option value="inpaint">{t('controlModeInpaint')}</option>
+        </select>
+      </div>
+      {enabled ? (
+        <div className="mt-3 grid gap-3 md:grid-cols-2">
+          <AssetFileField label={t('controlImage')} file={controlImageFile} onChange={onControlImageChange} />
+          <AssetFileField label={t('inpaintMask')} file={inpaintMaskFile} onChange={onMaskChange} />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function AssetFileField({ label, file, onChange }: { label: string; file: File | null; onChange: (file: File | null) => void }) {
+  return (
+    <label className="block rounded-md border border-dashed border-gray-700 bg-gray-900/80 px-3 py-3 transition hover:border-gray-500">
+      <span className="block text-xs font-medium text-gray-400">{label}</span>
+      <input
+        type="file"
+        accept="image/png,image/jpeg,image/webp"
+        onChange={event => onChange(event.currentTarget.files?.[0] ?? null)}
+        className="mt-2 block w-full text-xs text-gray-500 file:mr-3 file:rounded-md file:border-0 file:bg-gray-800 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-gray-300 hover:file:bg-gray-700"
+      />
+      <span className="mt-2 block truncate text-xs text-gray-600">{file?.name || 'PNG / JPG / WEBP'}</span>
+    </label>
   );
 }
 

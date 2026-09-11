@@ -13,6 +13,7 @@ import { getDatasetPath, rebuildMetadataCsv } from './datasets';
 import { isGpuBusy } from './process';
 import { REPO_ROOT } from './paths';
 import { createInferJobSpec, createTrainJobSpec, serializeJobSpec } from '../domain/jobSpec';
+import type { InferJobConfig } from '../types';
 
 export class JobIntakeError extends Error {
   constructor(
@@ -135,19 +136,27 @@ function resolveRepoRelativePath(inputPath: string) {
 }
 
 async function createInferJob(name: string, body: any, options: JobIntakeOptions) {
-  const resolvedConfig = await resolveInferenceConfig({
-    ...(body.config ?? {}),
-    prompt: String(body.config?.prompt || '').trim(),
-    gpu_ids: String(body.config?.gpu_ids || '').trim(),
-    offload_mode: body.config?.offload_mode,
-    output_prefix: String(body.config?.output_prefix || '').trim(),
-    checkpoint_path: String(body.config?.checkpoint_path || '').trim(),
-    base_model: String(body.config?.base_model || 'Qwen/Qwen-Image-2512').trim(),
-    use_lora: body.config?.use_lora == null ? undefined : Boolean(body.config.use_lora),
-    seed: Number(body.config?.seed ?? 0),
-    num_inference_steps: Number(body.config?.num_inference_steps ?? 40),
-    source_train_job_id: body.config?.source_train_job_id || null,
-  });
+  let resolvedConfig: InferJobConfig;
+  try {
+    resolvedConfig = await resolveInferenceConfig({
+      ...(body.config ?? {}),
+      prompt: String(body.config?.prompt || '').trim(),
+      gpu_ids: String(body.config?.gpu_ids || '').trim(),
+      offload_mode: body.config?.offload_mode,
+      output_prefix: String(body.config?.output_prefix || '').trim(),
+      checkpoint_path: String(body.config?.checkpoint_path || '').trim(),
+      base_model: String(body.config?.base_model || 'Qwen/Qwen-Image-2512').trim(),
+      use_lora: body.config?.use_lora == null ? undefined : Boolean(body.config.use_lora),
+      seed: Number(body.config?.seed ?? 0),
+      num_inference_steps: Number(body.config?.num_inference_steps ?? 40),
+      source_train_job_id: body.config?.source_train_job_id || null,
+      control_mode: body.config?.control_mode,
+      control_image_path: String(body.config?.control_image_path || '').trim(),
+      inpaint_mask_path: String(body.config?.inpaint_mask_path || '').trim(),
+    });
+  } catch (error: any) {
+    throw new JobIntakeError(error?.message || 'Invalid inference configuration');
+  }
   if (!resolvedConfig.prompt) {
     throw new JobIntakeError('Prompt is required');
   }
