@@ -63,6 +63,8 @@ JOB_ID=$(
         "prompt": "A cinematic portrait, fine details, soft light.",
         "seed": 0,
         "num_inference_steps": 40,
+        "width": 768,
+        "height": 768,
         "output_prefix": "image",
         "gpu_ids": "7",
         "checkpoint_path": "/abs/path/to/epoch-4.safetensors",
@@ -544,6 +546,7 @@ Inpaint 推理需要先上传控制图和掩膜，再将返回路径写入任务
 - `prompt`
 - `seed`
 - `num_inference_steps`
+- `width`、`height`：输出尺寸，必须为 512--1328 且能被 16 整除；默认 `1328`
 - `checkpoint_path`
 - `created_at`
 - `source_train_job_id`

@@ -93,6 +93,8 @@ class GenerateRequest(BaseModel):
     prompt: str
     seed: int = 0
     num_inference_steps: int = 40
+    width: int = 1328
+    height: int = 1328
     output_prefix: str = "service"
     control_mode: str = "none"
     control_image_path: str = ""
@@ -224,7 +226,10 @@ def main():
                 if control_mode == "inpaint":
                     try:
                         control_inputs = load_inpaint_inputs(
-                            payload.control_image_path, payload.inpaint_mask_path, 1328, 1328
+                            payload.control_image_path,
+                            payload.inpaint_mask_path,
+                            int(payload.width),
+                            int(payload.height),
                         )
                     except (ValueError, FileNotFoundError) as exc:
                         log(f"Invalid Inpaint assets: {exc}")
@@ -235,6 +240,8 @@ def main():
                         payload.prompt,
                         seed=int(payload.seed),
                         num_inference_steps=int(payload.num_inference_steps),
+                        width=int(payload.width),
+                        height=int(payload.height),
                         **control_inputs,
                     )
                     image.save(output_path)
@@ -243,6 +250,8 @@ def main():
                         "prompt": payload.prompt,
                         "seed": payload.seed,
                         "num_inference_steps": payload.num_inference_steps,
+                        "width": payload.width,
+                        "height": payload.height,
                         "created_at": now_iso(),
                         "checkpoint_path": service["checkpoint_path"],
                         "offload_mode": offload_mode,

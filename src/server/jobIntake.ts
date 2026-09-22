@@ -149,6 +149,8 @@ async function createInferJob(name: string, body: any, options: JobIntakeOptions
       use_lora: body.config?.use_lora == null ? undefined : Boolean(body.config.use_lora),
       seed: Number(body.config?.seed ?? 0),
       num_inference_steps: Number(body.config?.num_inference_steps ?? 40),
+      width: Number(body.config?.width ?? 1328),
+      height: Number(body.config?.height ?? 1328),
       source_train_job_id: body.config?.source_train_job_id || null,
       control_mode: body.config?.control_mode,
       control_image_path: String(body.config?.control_image_path || '').trim(),

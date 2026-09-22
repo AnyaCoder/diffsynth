@@ -102,6 +102,8 @@ export interface InferJobConfig {
   prompt: string;
   seed: number;
   num_inference_steps: number;
+  width?: number;
+  height?: number;
   output_prefix: string;
   gpu_ids: string;
   offload_mode?: InferenceOffloadMode;
@@ -149,6 +151,8 @@ export interface JobResult {
   prompt: string;
   seed: number;
   num_inference_steps: number;
+  width?: number;
+  height?: number;
   checkpoint_path: string;
   created_at: string;
   source_train_job_id?: string | null;

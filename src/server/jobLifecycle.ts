@@ -237,6 +237,7 @@ async function runInferenceViaService(job: Job, serviceId: string) {
     `prompt=${config.prompt}`,
     `seed=${config.seed}`,
     `steps=${config.num_inference_steps}`,
+    `size=${config.width ?? 1328}x${config.height ?? 1328}`,
   ].join('\n');
   fs.writeFileSync(runDir.logPath, `${logLines}\n`, 'utf-8');
   fs.writeFileSync(
@@ -263,6 +264,8 @@ async function runInferenceViaService(job: Job, serviceId: string) {
       prompt: config.prompt,
       seed: config.seed,
       num_inference_steps: config.num_inference_steps,
+      width: config.width ?? 1328,
+      height: config.height ?? 1328,
       output_prefix: config.output_prefix || 'result',
       control_mode: config.control_mode || 'none',
       control_image_path: config.control_image_path || '',

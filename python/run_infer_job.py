@@ -158,7 +158,10 @@ def main():
             control_inputs = {}
             if control_mode == "inpaint":
                 control_inputs = load_inpaint_inputs(
-                    spec.get("control_image_path"), spec.get("inpaint_mask_path"), 1328, 1328
+                    spec.get("control_image_path"),
+                    spec.get("inpaint_mask_path"),
+                    int(spec.get("width", 1328)),
+                    int(spec.get("height", 1328)),
                 )
                 log_file.write(
                     f"Using Inpaint ControlNet: image={spec.get('control_image_path')} mask={spec.get('inpaint_mask_path')}\n"
@@ -167,6 +170,8 @@ def main():
                 spec["prompt"],
                 seed=int(spec["seed"]),
                 num_inference_steps=int(spec["num_inference_steps"]),
+                width=int(spec.get("width", 1328)),
+                height=int(spec.get("height", 1328)),
                 **control_inputs,
             )
             output_name = f'{spec["output_prefix"] or "result"}_{int(time.time())}.jpg'
@@ -177,6 +182,8 @@ def main():
                 "prompt": spec["prompt"],
                 "seed": spec["seed"],
                 "num_inference_steps": spec["num_inference_steps"],
+                "width": int(spec.get("width", 1328)),
+                "height": int(spec.get("height", 1328)),
                 "checkpoint_path": checkpoint_path,
                 "offload_mode": offload_mode,
                 "use_lora": use_lora,

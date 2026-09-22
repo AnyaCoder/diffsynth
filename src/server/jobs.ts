@@ -87,6 +87,8 @@ export async function listResults(jobId: string): Promise<JobResult[]> {
           prompt: parsed.prompt ?? '',
           seed: parsed.seed ?? 0,
           num_inference_steps: parsed.num_inference_steps ?? 0,
+          width: parsed.width ?? 1328,
+          height: parsed.height ?? 1328,
           checkpoint_path: parsed.checkpoint_path ?? '',
           offload_mode: normalizeInferenceOffloadMode(parsed.offload_mode),
           created_at: parsed.created_at ?? fs.statSync(fullPath).mtime.toISOString(),
@@ -125,6 +127,8 @@ export async function listResults(jobId: string): Promise<JobResult[]> {
       prompt: parsed.prompt,
       seed: parsed.seed,
       num_inference_steps: parsed.num_inference_steps,
+      width: parsed.width ?? 1328,
+      height: parsed.height ?? 1328,
       checkpoint_path: parsed.checkpoint_path,
       offload_mode: normalizeInferenceOffloadMode(parsed.offload_mode),
       created_at: parsed.created_at,
@@ -167,6 +171,8 @@ export async function listRecentInferenceResults(limit = 18): Promise<JobResult[
       prompt: parsed.prompt,
       seed: parsed.seed,
       num_inference_steps: parsed.num_inference_steps,
+      width: parsed.width ?? 1328,
+      height: parsed.height ?? 1328,
       checkpoint_path: parsed.checkpoint_path,
       offload_mode: normalizeInferenceOffloadMode(parsed.offload_mode),
       created_at: parsed.created_at,
@@ -203,6 +209,8 @@ export async function resolveInferenceConfig(
   config: InferJobConfig,
   options: { requireControlAssets?: boolean } = {},
 ): Promise<InferJobConfig> {
+  const width = normalizeInferenceDimension(config.width, 'width');
+  const height = normalizeInferenceDimension(config.height, 'height');
   let checkpointPath = config.checkpoint_path?.trim();
   const useLora = config.use_lora ?? Boolean(checkpointPath || config.source_train_job_id);
 
@@ -251,6 +259,8 @@ export async function resolveInferenceConfig(
 
   return {
     ...config,
+    width,
+    height,
     checkpoint_path: useLora ? checkpointPath : '',
     offload_mode: normalizeInferenceOffloadMode(config.offload_mode),
     use_lora: useLora,
@@ -260,6 +270,14 @@ export async function resolveInferenceConfig(
     control_image_path: controlImagePath,
     inpaint_mask_path: inpaintMaskPath,
   };
+}
+
+function normalizeInferenceDimension(value: number | undefined, name: 'width' | 'height') {
+  const dimension = value ?? 1328;
+  if (!Number.isInteger(dimension) || dimension < 512 || dimension > 1328 || dimension % 16 !== 0) {
+    throw new Error(`${name} must be an integer from 512 to 1328 divisible by 16`);
+  }
+  return dimension;
 }
 
 export async function defaultTrainOutputPath(name: string) {
